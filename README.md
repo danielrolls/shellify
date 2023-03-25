@@ -7,7 +7,7 @@ The [`nix-shell`](https://nixos.org/manual/nix/stable/command-ref/nix-shell.html
 This utility assumes [nix is installed](https://nixos.org/download.html).
 
 
-## Example usage
+## Example Usage
 
 I want to run something called `foo`. When I run `./foo` it complains I don't have python. So I run `nix-shell -p python` and try running `./foo` again.
 
