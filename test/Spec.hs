@@ -33,4 +33,3 @@ main = hspec $
           ["--packages", "cowsay"] `shouldResultInPackages` [ "cowsay" ]
 
 
-
