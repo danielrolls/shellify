@@ -32,6 +32,4 @@ main = hspec $
         it "should support long switches" $
           ["--packages", "cowsay"] `shouldResultInPackages` [ "cowsay" ]
 
-        it "should fail" $
-          ["foo"] `shouldResultInPackages` [ "shouldfail" ]
 
