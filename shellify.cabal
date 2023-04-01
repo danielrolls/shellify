@@ -17,6 +17,9 @@ common deps
     build-depends:
         base ^>=4.16.4.0,
         text >=1.2.3.2 && <2.1
+    default-extensions:
+        LambdaCase
+        OverloadedStrings
    
 library
     import: deps
@@ -26,10 +29,7 @@ library
     hs-source-dirs: src
     autogen-modules:
         Paths_shellify
-    default-extensions: 
-        OverloadedStrings
     build-depends:
-        parsec >=3.1.14.0 && <3.2,
         ginger >=0.10.0 && <0.11,
         mtl >=2.2.2 && < 2.3,
         unordered-containers >=0.2.14.0 && <0.3,
@@ -49,12 +49,8 @@ test-suite haskelltest-test
     hs-source-dirs: test
     other-modules:
         Paths_shellify
-    default-extensions:
-        OverloadedStrings
     ghc-options: -threaded -rtsopts -with-rtsopts=-N
     build-depends:
         shellify >=0,
         hspec >=2.7.1 && <2.11,
-        parsec >=3.1.14.0 && <3.2,
-        parsec-numbers >=0.1.0 && <0.2
 

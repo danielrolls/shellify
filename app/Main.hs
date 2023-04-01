@@ -1,8 +1,13 @@
 module Main where
 
-import Lib.Shellify (options, runtm)
-import System.Environment (getArgs)
+import Data.Text.IO (hPutStrLn)
 import Data.Text (pack)
+import Lib.Shellify (options, run)
+import System.Environment (getArgs)
+import System.IO (stderr)
 
 main :: IO ()
-main = getArgs >>= runtm . options . map pack
+main = 
+  options . fmap pack <$> getArgs
+  >>= either (hPutStrLn stderr)
+             run 

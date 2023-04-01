@@ -1,4 +1,13 @@
 { pkgs ? import <nixpkgs> {} }:
+
 pkgs.mkShell {
+
   buildInputs = {{ build_inputs }};
+{% if shell_hook != None %}
+
+  shellHook = ''
+    {{ shell_hook }}
+  '';
+{% endif %}
+
 }
