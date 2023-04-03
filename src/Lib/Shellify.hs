@@ -1,9 +1,10 @@
-module Lib.Shellify (Options(Options), Packages, options, run) where
+module Lib.Shellify (Options(Options, command, help, packages), def, Packages, options, run) where
 
 import Prelude hiding (concat, writeFile)
 
 import Control.Applicative ((<|>))
 import Control.Monad.Identity (join)
+import Data.Default.Class (Default(def))
 import Data.HashMap.Strict (fromList, insert)
 import Data.Maybe (fromMaybe)
 import Data.Text.IO (writeFile)
@@ -14,19 +15,26 @@ import System.Directory (doesPathExist)
 import System.IO.Error (tryIOError)
 import System.IO (openFile, hGetContents, hPutStrLn, stderr)
 import Text.Ginger (easyRender, parseGingerFile)
+import Text.RawString.QQ (r)
 
 type Packages = [ Text ]
 data Options = Options {
     packages :: Packages
   , command :: Maybe Text
+  , help :: Bool
 } deriving (Eq, Show)
 
+instance Default Options where
+  def = Options [] Nothing False
+
 options :: [Text] -> Either Text Options
-options = options' (Right $ Options [] Nothing)
+options = options' (Right def)
 
 options' :: Either Text Options -> [Text] -> Either Text Options
 options' retOptions [] = retOptions
 options' retOptions (wd:wds) = case wd of
+  "-h" -> handleHelpSwitch
+  "--help" -> handleHelpSwitch
   "-p" -> handlePackageSwitch
   "--packages" -> handlePackageSwitch
   "--command" -> handleCommandSwitch wds
@@ -38,6 +46,14 @@ options' retOptions (wd:wds) = case wd of
         handleCommandSwitch (hd:_) | isSwitch hd
                                     = Left "Argument missing to switch"
         handleCommandSwitch (hd:tl) = options' (fmap (\r -> r{command=Just hd}) retOptions) tl
+        handleHelpSwitch = Left helpText
+
+helpText = pack [r|USAGE: nix-shellify -p [PACKAGES] 
+
+Pass nix-shell arguments to nix-shellify to have it generate a shell.nix in
+the current directory. You can then just run nix-shell in that directory to
+have those directories in your environment. To run nix-shell you must first
+install Nix.|]
 
 consumePackageArgs :: [Text] -> (Packages, [Text])
 consumePackageArgs = worker []
@@ -46,13 +62,13 @@ consumePackageArgs = worker []
 	worker pkgs (hd:tl) = worker (hd:pkgs) tl
 
 run :: Options -> IO ()
-run (Options [] _) = printError "I can't write out a shell file without any packages specified"
+run (Options{packages=[]}) = printError "I can't write out a shell file without any packages specified"
 run options = createShellFile options
 
 isSwitch = ("-" `isPrefixOf`)
 
 createShellFile :: Options -> IO ()
-createShellFile (Options packages command) =
+createShellFile (Options packages command _) =
   do  getDataFileName "templates/shellify.nix.j2" 
   >>= parseGingerFile loadFileMay 
   >>= either handleParseError
