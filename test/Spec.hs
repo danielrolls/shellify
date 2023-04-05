@@ -4,32 +4,32 @@ import Lib.Shellify (def, options, Options(Options, command, help, packages))
 import Test.Hspec (Expectation(), hspec, it, shouldBe, shouldSatisfy)
 
 shouldResultInPackages :: [Text] -> [Text] -> Expectation
-shouldResultInPackages stringInput packages = options stringInput `shouldBe` Right def{packages=packages}
+shouldResultInPackages stringInput packages = options "foo" stringInput `shouldBe` Right def{packages=packages}
 
 main :: IO ()
 main = hspec $ do 
    it "should be able to specify one program to install" $
-     ["-p", "python"]
+     ["nix-shellify", "-p", "python"]
        `shouldResultInPackages`
      [ "python" ]
 
    it "should allow a simple command to be specified with a package" $
-     options ["-p", "python", "--command", "cowsay"]
+     options "nix-shellify" ["-p", "python", "--command", "cowsay"]
        `shouldBe`
      Right def{packages=["python"], command=Just "cowsay"}
 
    it "should allow a simple command to be specified before a package" $
-     options ["--command", "cowsay", "-p", "python" ]
+     options "nix-shellify" ["--command", "cowsay", "-p", "python" ]
        `shouldBe`
      Right def{packages=["python"], command=Just "cowsay"}
 
    it "should allow a simple command to be specified before and after a package" $
-     options ["-p", "cowsay", "--command", "cowsay", "-p", "python" ]
+     options "nix-shellify" ["-p", "cowsay", "--command", "cowsay", "-p", "python" ]
        `shouldBe`
-     Right def{packages=["python", "cowsay" ], command=Just "cowsay"}
+     Right def{packages=[ "cowsay", "python" ], command=Just "cowsay"}
 
    it "Should fail if command has no argument" $
-     options ["--command", "-p", "python" ] `shouldSatisfy` isLeft
+     options "nix-shellify" ["--command", "-p", "python" ] `shouldSatisfy` isLeft
 
    it "should be able to specify one program to install after other arguments" $
      [ "foo", "-p", "python" ]
@@ -54,12 +54,12 @@ main = hspec $ do
    it "should support multiple adjacent -p switches" $
      [ "-p", "python", "-p", "cowsay"]
        `shouldResultInPackages`
-     [ "cowsay", "python" ]
+     [ "python", "cowsay" ]
 
    it "should support separated -p switches" $
      [ "-p", "cowsay", "--foo", "-p", "python"]
        `shouldResultInPackages`
-     [ "python", "cowsay" ]
+     [ "cowsay", "python" ]
 
    it "should support long switches" $
      [ "--packages", "cowsay" ]

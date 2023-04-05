@@ -27,42 +27,51 @@ data Options = Options {
 instance Default Options where
   def = Options [] Nothing False
 
-options :: [Text] -> Either Text Options
-options = options' (Right def)
+options :: Text -> [Text] -> Either Text Options
+options progName = options'
 
-options' :: Either Text Options -> [Text] -> Either Text Options
-options' retOptions [] = retOptions
-options' retOptions (wd:wds) = case wd of
-  "-h" -> handleHelpSwitch
-  "--help" -> handleHelpSwitch
-  "-p" -> handlePackageSwitch
-  "--packages" -> handlePackageSwitch
-  "--command" -> handleCommandSwitch wds
-  "--run" -> handleCommandSwitch wds
-  _ -> options' retOptions wds
-  where handlePackageSwitch = let (pkgs, remainingOptions) = consumePackageArgs wds
-                              in options' (fmap (\r -> r{packages=pkgs ++ packages r}) retOptions) remainingOptions
-        handleCommandSwitch [] = Left "Argument missing to switch"
-        handleCommandSwitch (hd:_) | isSwitch hd
-                                    = Left "Argument missing to switch"
-        handleCommandSwitch (hd:tl) = options' (fmap (\r -> r{command=Just hd}) retOptions) tl
-        handleHelpSwitch = Left helpText
+  where options' :: [Text] -> Either Text Options
+        options' [] = Right def
+        options' (wd:wds) = case wd of
+          "-h" -> handleHelpSwitch
+          "--help" -> handleHelpSwitch
+          "-p" -> handlePackageSwitch
+          "--packages" -> handlePackageSwitch
+          "--command" -> handleCommandSwitch wds
+          "--run" -> handleCommandSwitch wds
+          _ -> options' wds
+          where handlePackageSwitch =
+                  let (pkgs, remainingOptions) = consumePackageArgs wds
+                  in appendPackages pkgs <$> options' remainingOptions
 
-helpText = pack [r|USAGE: nix-shellify -p [PACKAGES] 
+                handleCommandSwitch [] = Left "Argument missing to switch"
+                handleCommandSwitch (hd:_) | isSwitch hd
+                                           = Left "Argument missing to switch"
+                handleCommandSwitch (hd:tl) = setCommand hd <$> options' tl
+
+                handleHelpSwitch = Left $ helpText progName
+
+                appendPackages ps opts = opts{packages=ps ++ packages opts}
+                setCommand cmd opts = opts{command=Just cmd}
+
+helpText progName = "USAGE: " <> progName <> (pack [r| -p [PACKAGES] 
 
 Pass nix-shell arguments to nix-shellify to have it generate a shell.nix in
 the current directory. You can then just run nix-shell in that directory to
 have those directories in your environment. To run nix-shell you must first
-install Nix.|]
+install Nix.|])
 
 consumePackageArgs :: [Text] -> (Packages, [Text])
 consumePackageArgs = worker []
   where worker pkgs [] = (pkgs, [])
-	worker pkgs options@(hd:_) | isSwitch hd = (pkgs, options)
-	worker pkgs (hd:tl) = worker (hd:pkgs) tl
+        worker pkgs options@(hd:_) | isSwitch hd
+                                   = (pkgs, options)
+        worker pkgs (hd:tl) = worker (hd:pkgs) tl
 
 run :: Options -> IO ()
-run (Options{packages=[]}) = printError "I can't write out a shell file without any packages specified"
+run (Options{packages=[]}) =
+  printError [r|I can't write out a shell file without any packages specified.
+Try 'nix-shellify --help' for more information.|]
 run options = createShellFile options
 
 isSwitch = ("-" `isPrefixOf`)
@@ -79,7 +88,7 @@ createShellFile (Options packages command _) =
                         command
                   $ fromList [ ("build_inputs" :: Text, pkgsStr) ]
         handleParseError err = printError (show err)
-	loadFileMay fn = rightToMaybe <$> tryIOError (readFile fn)
+        loadFileMay fn = rightToMaybe <$> tryIOError (readFile fn)
 
 writeShellFile :: Text -> IO ()
 writeShellFile expectedContents = do
