@@ -1,4 +1,4 @@
-module Lib.Shellify (Options(Options, command, help, packages), def, Packages, options, run) where
+module Lib.Shellify (Options(..), def, Packages, options, run) where
 
 import Prelude hiding (concat, writeFile)
 
@@ -81,7 +81,7 @@ run (Options{packages=[]}) =
 Try 'nix-shellify --help' for more information.|]
 run options = createShellFile options
 
-isSwitch = ("-" `isPrefixOf`)
+isSwitch = isPrefixOf "-"
 
 createShellFile :: Options -> IO ()
 createShellFile (Options packages command _) =
