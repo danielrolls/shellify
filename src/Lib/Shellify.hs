@@ -6,6 +6,7 @@ import Control.Applicative ((<|>))
 import Control.Monad.Identity (join)
 import Data.Default.Class (Default(def))
 import Data.HashMap.Strict (fromList, insert)
+import Data.List (sort)
 import Data.Maybe (fromMaybe)
 import Data.Text.IO (writeFile)
 import qualified Data.Text.IO as Text
@@ -22,10 +23,16 @@ data Options = Options {
     packages :: Packages
   , command :: Maybe Text
   , help :: Bool
-} deriving (Eq, Show)
+} deriving (Show)
 
 instance Default Options where
   def = Options [] Nothing False
+
+instance Eq Options where
+  a == b =  isEqual help
+         && isEqual command
+         && isEqual (sort . packages)
+    where isEqual f = f a == f b
 
 options :: Text -> [Text] -> Either Text Options
 options progName = options'
