@@ -1,6 +1,6 @@
 import Data.Either (isLeft)
 import Data.Text (Text())
-import Lib.Shellify (def, options, Options(Options, command, help, packages))
+import Lib.Shellify
 import Test.Hspec (Expectation(), hspec, it, shouldBe, shouldSatisfy)
 
 shouldResultInPackages :: [Text] -> [Text] -> Expectation

@@ -89,13 +89,14 @@ createShellFile (Options packages command _) =
   >>= parseGingerFile loadFileMay 
   >>= either handleParseError
              (writeShellFile . easyRender context)
-  where pkgsStr = ("[" <>) . (<> " ]") . concat . fmap (" pkgs." <>) $ packages
+  where pkgsStr = surroundWithBraces . concat . fmap (" pkgs." <>) $ packages
         context = maybe id
                         (insert "shell_hook")
                         command
                   $ fromList [ ("build_inputs" :: Text, pkgsStr) ]
         handleParseError err = printError (show err)
         loadFileMay fn = rightToMaybe <$> tryIOError (readFile fn)
+        surroundWithBraces str = "[" <> str <> " ]"
 
 writeShellFile :: Text -> IO ()
 writeShellFile expectedContents = do
