@@ -83,20 +83,26 @@ run options = createShellFile options
 
 isSwitch = isPrefixOf "-"
 
-createShellFile :: Options -> IO ()
-createShellFile (Options packages command _) =
-  do  getDataFileName "templates/shellify.nix.j2" 
-  >>= parseGingerFile loadFileMay 
-  >>= either handleParseError
-             (writeShellFile . easyRender context)
+generateShellDotNixText :: Options -> IO (Either Text Text)
+generateShellDotNixText (Options packages command _) =
+  either (Left . pack . show)
+         (Right . easyRender context)
+  <$> parseShellifyTemplate
   where pkgsStr = surroundWithBraces . concat . fmap (" pkgs." <>) $ packages
         context = maybe id
                         (insert "shell_hook")
                         command
                   $ fromList [ ("build_inputs" :: Text, pkgsStr) ]
-        handleParseError err = printError (show err)
         loadFileMay fn = rightToMaybe <$> tryIOError (readFile fn)
         surroundWithBraces str = "[" <> str <> " ]"
+        parseShellifyTemplate =     getDataFileName "templates/shellify.nix.j2"
+                                >>= parseGingerFile loadFileMay
+
+createShellFile :: Options -> IO ()
+createShellFile opts =
+  generateShellDotNixText opts
+  >>= either (Text.hPutStrLn stderr)
+             writeShellFile
 
 writeShellFile :: Text -> IO ()
 writeShellFile expectedContents = do
