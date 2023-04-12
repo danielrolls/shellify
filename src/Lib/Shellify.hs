@@ -1,4 +1,4 @@
-module Lib.Shellify (Options(..), def, Packages, options, run) where
+module Lib.Shellify (Options(..), def, generateShellDotNixText, Packages, options, run) where
 
 import Prelude hiding (concat, writeFile)
 

@@ -9,8 +9,11 @@ license-files: LICENSE
 copyright: (c) 2023 Daniel Rolls
 
 category: Packaging
-extra-source-files: CHANGELOG.md
-data-files: templates/*.j2
+extra-source-files:
+    CHANGELOG.md
+    test/outputs/*.nix
+data-files:
+    templates/*.j2
 
 common deps
     default-language: GHC2021
