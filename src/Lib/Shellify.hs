@@ -4,8 +4,8 @@ import Prelude hiding (concat, writeFile)
 
 import Control.Applicative ((<|>))
 import Control.Monad.Identity (join)
+import Control.Monad.Writer (Writer)
 import Data.Default.Class (Default(def))
-import Data.HashMap.Strict (fromList, insert)
 import Data.List (sort)
 import Data.Maybe (fromMaybe)
 import Data.Text.IO (writeFile)
@@ -15,7 +15,7 @@ import Paths_shellify (getDataFileName)
 import System.Directory (doesPathExist)
 import System.IO.Error (tryIOError)
 import System.IO (openFile, hGetContents, hPutStrLn, stderr)
-import Text.Ginger (easyRender, parseGingerFile)
+import Text.Ginger (dict, easyRender, GVal(GVal), Pair, parseGingerFile, Run, SourcePos, (~>))
 import Text.RawString.QQ (r)
 
 type Packages = [ Text ]
@@ -89,10 +89,11 @@ generateShellDotNixText (Options packages command _) =
          (Right . easyRender context)
   <$> parseShellifyTemplate
   where pkgsStr = surroundWithBraces . concat . fmap (" pkgs." <>) $ packages
-        context = maybe id
-                        (insert "shell_hook")
-                        command
-                  $ fromList [ ("build_inputs" :: Text, pkgsStr) ]
+        context :: GVal (Run SourcePos (Writer Text) Text)
+        context = dict $ [ ("build_inputs" :: Text) ~> pkgsStr ]
+                         <> maybe []
+                                  (return . (("shell_hook" :: Text) ~>))
+                                  command
         loadFileMay fn = rightToMaybe <$> tryIOError (readFile fn)
         surroundWithBraces str = "[" <> str <> " ]"
         parseShellifyTemplate =     getDataFileName "templates/shellify.nix.j2"

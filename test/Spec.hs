@@ -8,9 +8,11 @@ import Test.Hspec (Expectation(), hspec, it, shouldBe, shouldReturn, shouldSatis
 main :: IO ()
 main = do
    expectedOutputWithTwoBuildInputs <- expectedOutputFor "simple-two-build-inputs"
+   expectedOutputWithCommand <- expectedOutputFor "two-build-inputs-and-command"
    hspec $ do
      it "should produce the expected shell.nix for 2 simple buildInputs" $
        generateShellDotNixText def{packages=["python", "cowsay"]} `shouldReturn` Right expectedOutputWithTwoBuildInputs
+
      it "should be able to specify one program to install" $
        ["nix-shellify", "-p", "python"]
          `shouldResultInPackages`
@@ -68,6 +70,9 @@ main = do
        [ "--packages", "cowsay" ]
          `shouldResultInPackages`
        [ "cowsay" ]
+
+     it "should produce the expected shell.nix when a command is specified" $
+       generateShellDotNixText def{packages=["python", "cowsay"], command=Just "cowsay"} `shouldReturn` Right expectedOutputWithCommand
 
 shouldResultInPackages :: [Text] -> [Text] -> Expectation
 shouldResultInPackages stringInput packages = options "foo" stringInput `shouldBe` Right def{packages=packages}
