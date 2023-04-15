@@ -88,14 +88,13 @@ generateShellDotNixText (Options packages command _) =
   either (Left . pack . show)
          (Right . easyRender context)
   <$> parseShellifyTemplate
-  where pkgsStr = surroundWithBraces . concat . fmap (" pkgs." <>) $ packages
+  where pkgs = fmap (" pkgs." <>) $ packages
         context :: GVal (Run SourcePos (Writer Text) Text)
-        context = dict $ [ ("build_inputs" :: Text) ~> pkgsStr ]
+        context = dict $ [ ("build_inputs" :: Text) ~> pkgs ]
                          <> maybe []
                                   (return . (("shell_hook" :: Text) ~>))
                                   command
         loadFileMay fn = rightToMaybe <$> tryIOError (readFile fn)
-        surroundWithBraces str = "[" <> str <> " ]"
         parseShellifyTemplate =     getDataFileName "templates/shellify.nix.j2"
                                 >>= parseGingerFile loadFileMay
 

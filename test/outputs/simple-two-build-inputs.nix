@@ -2,6 +2,9 @@
 
 pkgs.mkShell {
 
-  buildInputs = [ pkgs.python pkgs.cowsay ];
+  buildInputs = [
+    pkgs.python
+    pkgs.cowsay
+  ];
 
 }

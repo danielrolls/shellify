@@ -2,7 +2,9 @@
 
 pkgs.mkShell {
 
-  buildInputs = {{ build_inputs }};
+  buildInputs = [
+{% for inp in build_inputs %}{{ "   " ~ inp ~ "\n" }}{% endfor %}
+  ];
 {% if shell_hook != None %}
 
   shellHook = ''
