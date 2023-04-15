@@ -27,7 +27,7 @@ common deps
 library
     import: deps
     exposed-modules:
-        Lib.Shellify
+        Shellify
         Paths_shellify
     hs-source-dirs: src
     autogen-modules:

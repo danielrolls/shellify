@@ -2,7 +2,7 @@ module Main where
 
 import Data.Text.IO (hPutStrLn)
 import Data.Text (pack)
-import Lib.Shellify (options, run)
+import Shellify (options, run)
 import System.Environment (getArgs, getProgName)
 import System.IO (stderr)
 

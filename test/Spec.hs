@@ -2,7 +2,7 @@ import Prelude hiding (readFile)
 import Data.Either (isLeft)
 import Data.Text (Text())
 import Data.Text.IO (readFile)
-import Lib.Shellify
+import Shellify
 import Test.Hspec (Expectation(), hspec, it, shouldBe, shouldReturn, shouldSatisfy)
 
 main :: IO ()
