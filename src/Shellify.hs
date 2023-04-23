@@ -3,18 +3,22 @@ module Shellify (Options(..), def, generateShellDotNixText, Packages, options, r
 import Prelude hiding (concat, writeFile)
 
 import Control.Applicative ((<|>))
+import Control.Monad (when)
 import Control.Monad.Identity (join)
 import Control.Monad.Writer (Writer)
+import Data.Bool (bool)
 import Data.Default.Class (Default(def))
 import Data.List (sort)
 import Data.Maybe (fromMaybe)
 import Data.Text.IO (writeFile)
 import qualified Data.Text.IO as Text
 import Data.Text (pack, unpack, Text(), isPrefixOf, concat)
+import GHC.IO.Exception (ExitCode(ExitSuccess,ExitFailure))
 import Paths_shellify (getDataFileName)
 import System.Directory (doesPathExist)
+import System.Exit (exitWith)
 import System.IO.Error (tryIOError)
-import System.IO (openFile, hGetContents, hPutStrLn, stderr)
+import System.IO (hGetContents, hPutStrLn, stderr)
 import Text.Ginger (dict, easyRender, GVal(GVal), Pair, parseGingerFile, Run, SourcePos, (~>))
 import Text.RawString.QQ (r)
 
@@ -106,16 +110,27 @@ createShellFile opts =
 
 writeShellFile :: Text -> IO ()
 writeShellFile expectedContents = do
-  exist <- doesPathExist "shell.nix"
-  if exist then do
-    fileContents <- Text.readFile "shell.nix"
-    if fileContents == expectedContents then
-      printError "The existing shell.nix is good already"
-    else 
-      printError "A shell.nix exists already. Delete it or move it and try again"
-  else do
-     printError "shell.nix does not exist. Creating one"
-     writeFile "shell.nix" expectedContents
+  fileContents <-     doesPathExist "shell.nix"
+                  >>= bool
+		        (return Nothing)
+		        (Just <$> Text.readFile "shell.nix")
+  Text.hPutStrLn stderr $ actionDescription expectedContents fileContents
+  when (shouldGenerateNewFile fileContents)
+    $ writeFile "shell.nix" expectedContents
+  exitWith $ returnCode expectedContents fileContents
+
+actionDescription :: Text -> Maybe Text -> Text
+actionDescription _ Nothing = "shell.nix does not exist. Creating one"
+actionDescription a (Just b) | a == b = "The existing shell.nix is good already"
+actionDescription _ _ = "A shell.nix exists already. Delete it or move it and try again"
+
+returnCode :: Text -> Maybe Text -> ExitCode
+returnCode _ Nothing = ExitSuccess
+returnCode a (Just b) | a == b = ExitSuccess
+returnCode _ _ = ExitFailure 1
+
+shouldGenerateNewFile :: Maybe Text -> Bool
+shouldGenerateNewFile = (== Nothing)
 
 printError = hPutStrLn stderr
 rightToMaybe = either (const Nothing) Just
