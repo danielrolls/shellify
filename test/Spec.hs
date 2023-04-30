@@ -6,19 +6,21 @@ import Shellify
 import Test.Hspec (Expectation(), hspec, it, shouldBe, shouldReturn, shouldSatisfy)
 
 main :: IO ()
-main = do
-   expectedOutputWithTwoBuildInputs <- expectedOutputFor "simple-two-build-inputs"
-   expectedOutputWithCommand <- expectedOutputFor "two-build-inputs-and-command"
-   expectedOutputWithMultipleRepoSources <- expectedOutputFor "multiple-repository-sources"
-   hspec $ do
+main = hspec $ do
      it "should produce the expected shell.nix for 2 simple buildInputs" $
-       generateShellDotNixText def{packages=["python", "cowsay"]} `shouldReturn` Right expectedOutputWithTwoBuildInputs
+       generateShellDotNixText def{packages=["python", "cowsay"]}
+         `shouldReturnShellTextOf`
+       "simple-two-build-inputs"
 
      it "should produce the expected shell.nix for 2 nixpkgs buildInputs" $
-       generateShellDotNixText def{packages=["nixpkgs#python", "nixpkgs#cowsay"]} `shouldReturn` Right expectedOutputWithTwoBuildInputs
+       generateShellDotNixText def{packages=["nixpkgs#python", "nixpkgs#cowsay"]}
+         `shouldReturnShellTextOf`
+       "simple-two-build-inputs"
 
      it "should produce the expected shell.nix for multiple repo sources" $
-       generateShellDotNixText def{packages=["nixpkgs#python", "foo#cowsay"]} `shouldReturn` Right expectedOutputWithMultipleRepoSources
+       generateShellDotNixText def{packages=["nixpkgs#python", "foo#cowsay"]}
+         `shouldReturnShellTextOf`
+       "multiple-repository-sources"
 
      it "should be able to specify one program to install" $
        ["nix-shellify", "-p", "python"]
@@ -79,9 +81,15 @@ main = do
        [ "cowsay" ]
 
      it "should produce the expected shell.nix when a command is specified" $
-       generateShellDotNixText def{packages=["python", "cowsay"], command=Just "cowsay"} `shouldReturn` Right expectedOutputWithCommand
+       generateShellDotNixText def{packages=["python", "cowsay"], command=Just "cowsay"}
+         `shouldReturnShellTextOf`
+       "two-build-inputs-and-command"
 
 shouldResultInPackages :: [Text] -> [Text] -> Expectation
 shouldResultInPackages stringInput packages = options "foo" stringInput `shouldBe` Right def{packages=packages}
 
-expectedOutputFor = readFile . ("test/outputs/" <>) . (<> ".nix")
+shouldReturnShellTextOf :: IO (Either Text Text) -> FilePath -> IO ()
+shouldReturnShellTextOf actualGeneratedNixShell expectedOutputFile =
+      readFile ( "test/outputs/" <> expectedOutputFile <> ".nix")
+  >>= shouldReturn actualGeneratedNixShell . Right 
+
