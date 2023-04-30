@@ -1,28 +1,30 @@
 module Shellify (Options(..), def, generateShellDotNixText, Packages, options, run) where
 
-import Prelude hiding (concat, writeFile)
+import Prelude hiding (takeWhile, writeFile)
+import Constants
 
 import Control.Applicative ((<|>))
+import Control.Arrow ((+++))
 import Control.Monad (when)
-import Control.Monad.Identity (join)
 import Control.Monad.Writer (Writer)
 import Data.Bool (bool)
 import Data.Default.Class (Default(def))
 import Data.List (sort)
-import Data.Maybe (fromMaybe)
-import Data.Text.IO (writeFile)
+import Data.Maybe (fromJust)
+import Data.Set (fromList, toList)
+import Data.Text (intercalate, isInfixOf, isPrefixOf, pack, replace, stripPrefix, takeWhile, Text())
+import Data.Text.IO (hPutStrLn, writeFile)
 import qualified Data.Text.IO as Text
-import Data.Text (pack, unpack, Text(), isPrefixOf, concat)
-import GHC.IO.Exception (ExitCode(ExitSuccess,ExitFailure))
+import GHC.IO.Exception (ExitCode(ExitSuccess, ExitFailure))
 import Paths_shellify (getDataFileName)
 import System.Directory (doesPathExist)
 import System.Exit (exitWith)
 import System.IO.Error (tryIOError)
-import System.IO (hGetContents, hPutStrLn, stderr)
+import System.IO (hGetContents, stderr)
 import Text.Ginger (dict, easyRender, GVal(GVal), Pair, parseGingerFile, Run, SourcePos, (~>))
-import Text.RawString.QQ (r)
 
-type Packages = [ Text ]
+type Package = Text
+type Packages = [ Package ]
 data Options = Options {
     packages :: Packages
   , command :: Maybe Text
@@ -65,13 +67,6 @@ options progName = options'
                 appendPackages ps opts = opts{packages=ps ++ packages opts}
                 setCommand cmd opts = opts{command=Just cmd}
 
-helpText progName = "USAGE: " <> progName <> (pack [r| -p [PACKAGES] 
-
-Pass nix-shell arguments to nix-shellify to have it generate a shell.nix in
-the current directory. You can then just run nix-shell in that directory to
-have those directories in your environment. To run nix-shell you must first
-install Nix.|])
-
 consumePackageArgs :: [Text] -> (Packages, [Text])
 consumePackageArgs = worker []
   where worker pkgs [] = (pkgs, [])
@@ -80,21 +75,22 @@ consumePackageArgs = worker []
         worker pkgs (hd:tl) = worker (hd:pkgs) tl
 
 run :: Options -> IO ()
-run (Options{packages=[]}) =
-  printError [r|I can't write out a shell file without any packages specified.
-Try 'nix-shellify --help' for more information.|]
+run (Options{packages=[]}) = printError noPackagesError
 run options = createShellFile options
 
 isSwitch = isPrefixOf "-"
 
 generateShellDotNixText :: Options -> IO (Either Text Text)
 generateShellDotNixText (Options packages command _) =
-  either (Left . pack . show)
-         (Right . easyRender context)
+   (+++) (pack . show)
+         (easyRender context)
   <$> parseShellifyTemplate
-  where pkgs = fmap (" pkgs." <>) $ packages
+  where pkgs = generateBuildInput <$> packages
+        parameters = intercalate ", " $ uniq $ generateParameters <$> packages
         context :: GVal (Run SourcePos (Writer Text) Text)
-        context = dict $ [ ("build_inputs" :: Text) ~> pkgs ]
+        context = dict $ [ ("build_inputs" :: Text) ~> pkgs
+                         , ("parameters" :: Text) ~> parameters
+                         ]
                          <> maybe []
                                   (return . (("shell_hook" :: Text) ~>))
                                   command
@@ -102,19 +98,32 @@ generateShellDotNixText (Options packages command _) =
         parseShellifyTemplate =     getDataFileName "templates/shellify.nix.j2"
                                 >>= parseGingerFile loadFileMay
 
+generateBuildInput input  | "nixpkgs#" `isPrefixOf` input
+                            = ("pkgs." <>) $ fromJust $ stripPrefix "nixpkgs#" input
+                          | "#" `isInfixOf` input
+                            = replace "#" "." input
+                          | otherwise
+                            = "pkgs." <> input
+
+generateParameters :: Package -> Text
+generateParameters package | "nixpkgs#" `isPrefixOf` package = pkgsImport
+generateParameters package | "#" `isInfixOf` package = takeWhile (/= '#') package
+generateParameters package = pkgsImport
+pkgsImport = "pkgs ? import <nixpkgs> {}" :: Text
+
 createShellFile :: Options -> IO ()
 createShellFile opts =
   generateShellDotNixText opts
-  >>= either (Text.hPutStrLn stderr)
+  >>= either printError
              writeShellFile
 
 writeShellFile :: Text -> IO ()
 writeShellFile expectedContents = do
   fileContents <-     doesPathExist "shell.nix"
                   >>= bool
-		        (return Nothing)
-		        (Just <$> Text.readFile "shell.nix")
-  Text.hPutStrLn stderr $ actionDescription expectedContents fileContents
+                       (return Nothing)
+                       (Just <$> Text.readFile "shell.nix")
+  printError $ actionDescription expectedContents fileContents
   when (shouldGenerateNewFile fileContents)
     $ writeFile "shell.nix" expectedContents
   exitWith $ returnCode expectedContents fileContents
@@ -131,6 +140,9 @@ returnCode _ _ = ExitFailure 1
 
 shouldGenerateNewFile :: Maybe Text -> Bool
 shouldGenerateNewFile = (== Nothing)
+
+uniq :: Ord a => [a] -> [a]
+uniq = toList . fromList
 
 printError = hPutStrLn stderr
 rightToMaybe = either (const Nothing) Just

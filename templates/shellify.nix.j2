@@ -1,9 +1,9 @@
-{ pkgs ? import <nixpkgs> {} }:
+{ {{ parameters }} }:
 
 pkgs.mkShell {
 
   buildInputs = [
-{% for inp in build_inputs %}{{ "   " ~ inp ~ "\n" }}{% endfor %}
+{% for inp in build_inputs %}{{ "    " ~ inp ~ "\n" }}{% endfor %}
   ];
 {% if shell_hook != None %}
 

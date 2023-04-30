@@ -9,9 +9,16 @@ main :: IO ()
 main = do
    expectedOutputWithTwoBuildInputs <- expectedOutputFor "simple-two-build-inputs"
    expectedOutputWithCommand <- expectedOutputFor "two-build-inputs-and-command"
+   expectedOutputWithMultipleRepoSources <- expectedOutputFor "multiple-repository-sources"
    hspec $ do
      it "should produce the expected shell.nix for 2 simple buildInputs" $
        generateShellDotNixText def{packages=["python", "cowsay"]} `shouldReturn` Right expectedOutputWithTwoBuildInputs
+
+     it "should produce the expected shell.nix for 2 nixpkgs buildInputs" $
+       generateShellDotNixText def{packages=["nixpkgs#python", "nixpkgs#cowsay"]} `shouldReturn` Right expectedOutputWithTwoBuildInputs
+
+     it "should produce the expected shell.nix for multiple repo sources" $
+       generateShellDotNixText def{packages=["nixpkgs#python", "foo#cowsay"]} `shouldReturn` Right expectedOutputWithMultipleRepoSources
 
      it "should be able to specify one program to install" $
        ["nix-shellify", "-p", "python"]
