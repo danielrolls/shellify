@@ -22,11 +22,6 @@ main = hspec $ do
          `shouldReturnShellTextOf`
        "multiple-repository-sources"
 
-     it "should be able to specify one program to install" $
-       ["nix-shellify", "-p", "python"]
-         `shouldResultInPackages`
-       [ "python" ]
-
      it "should allow a simple command to be specified with a package" $
        options "nix-shellify" ["-p", "python", "--command", "cowsay"]
          `shouldBe`
@@ -46,39 +41,44 @@ main = hspec $ do
        options "nix-shellify" ["--command", "-p", "python" ] `shouldSatisfy` isLeft
 
      it "should be able to specify one program to install after other arguments" $
-       [ "foo", "-p", "python" ]
+       [ "nix-shellify", "foo", "-p", "python" ]
          `shouldResultInPackages`
        [ "python" ]
 
-     it "should specify no packages when no -p is passed" $
-       [ "foo" ]
-         `shouldResultInPackages`
-       [ ]
-
      it "should support multiple packages passes to -p" $
-       [ "-p", "python", "cowsay" ]
+       [ "nix-shellify", "-p", "python", "cowsay" ]
          `shouldResultInPackages`
        [ "cowsay", "python" ]
 
      it "should only accept packages up to the next switch" $
-       [ "-p", "python", "--arg", "x", "2" ]
+       [ "nix-shellify", "-p", "python", "--arg", "x", "2" ]
          `shouldResultInPackages`
        [ "python" ]
 
      it "should support multiple adjacent -p switches" $
-       [ "-p", "python", "-p", "cowsay"]
+       [ "nix-shellify", "-p", "python", "-p", "cowsay"]
          `shouldResultInPackages`
        [ "python", "cowsay" ]
 
      it "should support separated -p switches" $
-       [ "-p", "cowsay", "--foo", "-p", "python"]
+       [ "nix-shellify", "-p", "cowsay", "--foo", "-p", "python"]
          `shouldResultInPackages`
        [ "cowsay", "python" ]
 
      it "should support long switches" $
-       [ "--packages", "cowsay" ]
+       [ "nix-shellify", "--packages", "cowsay" ]
          `shouldResultInPackages`
        [ "cowsay" ]
+
+     it "should support new shell commands" $
+       [ "nix-shellify", "shell", "nixpkgs#python", "nixpkgs#cowsay" ]
+         `shouldResultInPackages`
+       [ "nixpkgs#python", "nixpkgs#cowsay" ]
+
+     it "should not support -p switches when using new command style" $
+       options  "nix-shellify" [ "shell", "nixpkgs#python", "-p", "foo", "nixpkgs#cowsay"]
+         `shouldSatisfy`
+       isLeft
 
      it "should produce the expected shell.nix when a command is specified" $
        generateShellDotNixText def{packages=["python", "cowsay"], command=Just "cowsay"}
@@ -86,7 +86,10 @@ main = hspec $ do
        "two-build-inputs-and-command"
 
 shouldResultInPackages :: [Text] -> [Text] -> Expectation
-shouldResultInPackages stringInput packages = options "foo" stringInput `shouldBe` Right def{packages=packages}
+shouldResultInPackages inputParameters packages =
+     options (head inputParameters) (tail inputParameters)
+       `shouldBe`
+     Right def{packages=packages}
 
 shouldReturnShellTextOf :: IO (Either Text Text) -> FilePath -> IO ()
 shouldReturnShellTextOf actualGeneratedNixShell expectedOutputFile =

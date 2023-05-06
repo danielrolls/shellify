@@ -41,31 +41,48 @@ instance Eq Options where
     where isEqual f = f a == f b
 
 options :: Text -> [Text] -> Either Text Options
-options progName = options'
+options progName args = 
+  if hasShellArg args then 
+    newOptions $ withoutShellArg args
+  else
+    optionsWorker args
 
-  where options' :: [Text] -> Either Text Options
-        options' [] = Right def
-        options' (wd:wds) = case wd of
+  where optionsWorker :: [Text] -> Either Text Options
+        optionsWorker [] = Right def
+        optionsWorker (wd:wds) = case wd of
+          "-p" -> handlePackageSwitch optionsWorker wds
+          "--packages" -> handlePackageSwitch optionsWorker wds
+          _ -> baseOptions optionsWorker (wd:wds)
+        newOptions [] = Right def
+	newOptions (wd:wds)
+          | wd == "-p"
+            = Left "-p not supported with new style commands"
+          | wd == "--packages"
+            = Left "--packages not supported with new style commands"
+          | isSwitch wd
+            = baseOptions newOptions (wd:wds)
+          | otherwise
+            = appendPackages [wd] <$> newOptions wds
+	baseOptions :: ([Text] -> Either Text Options) -> [Text] -> Either Text Options
+	baseOptions f (wd:wds) = case wd of
+          "--command" -> handleCommandSwitch f wds
           "-h" -> handleHelpSwitch
           "--help" -> handleHelpSwitch
-          "-p" -> handlePackageSwitch
-          "--packages" -> handlePackageSwitch
-          "--command" -> handleCommandSwitch wds
-          "--run" -> handleCommandSwitch wds
-          _ -> options' wds
-          where handlePackageSwitch =
-                  let (pkgs, remainingOptions) = consumePackageArgs wds
-                  in appendPackages pkgs <$> options' remainingOptions
+          "--run" -> handleCommandSwitch f wds
+          "--verbose" -> f wds
+	  _ -> f wds
+	baseOptions _ _ = Right def
+        handlePackageSwitch f wds = let (pkgs, remainingOptions) = consumePackageArgs wds
+                                    in appendPackages pkgs <$> f remainingOptions
+        handleCommandSwitch _ [] = Left "Argument missing to switch"
+        handleCommandSwitch _ (hd:_) | isSwitch hd
+                                     = Left "Argument missing to switch"
+        handleCommandSwitch f (hd:tl) = setCommand hd <$> f tl
 
-                handleCommandSwitch [] = Left "Argument missing to switch"
-                handleCommandSwitch (hd:_) | isSwitch hd
-                                           = Left "Argument missing to switch"
-                handleCommandSwitch (hd:tl) = setCommand hd <$> options' tl
+        handleHelpSwitch = Left $ helpText progName
 
-                handleHelpSwitch = Left $ helpText progName
-
-                appendPackages ps opts = opts{packages=ps ++ packages opts}
-                setCommand cmd opts = opts{command=Just cmd}
+        appendPackages ps opts = opts{packages=ps ++ packages opts}
+        setCommand cmd opts = opts{command=Just cmd}
 
 consumePackageArgs :: [Text] -> (Packages, [Text])
 consumePackageArgs = worker []
@@ -77,8 +94,6 @@ consumePackageArgs = worker []
 run :: Options -> IO ()
 run (Options{packages=[]}) = printError noPackagesError
 run options = createShellFile options
-
-isSwitch = isPrefixOf "-"
 
 generateShellDotNixText :: Options -> IO (Either Text Text)
 generateShellDotNixText (Options packages command _) =
@@ -146,3 +161,14 @@ uniq = toList . fromList
 
 printError = hPutStrLn stderr
 rightToMaybe = either (const Nothing) Just
+
+isSwitch = isPrefixOf "-"
+
+hasShellArg [] = False
+hasShellArg ("shell":_) = True
+hasShellArg (hd:tl) | isSwitch hd = hasShellArg tl
+                    | otherwise = False
+
+withoutShellArg [] = []
+withoutShellArg ("shell":tl) = tl
+withoutShellArg (hd:tl) = hd : (withoutShellArg tl)
