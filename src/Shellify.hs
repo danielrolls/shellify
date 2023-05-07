@@ -40,49 +40,51 @@ instance Eq Options where
          && isEqual (sort . packages)
     where isEqual f = f a == f b
 
+data OptionsParser = OptionsParser {
+  remainingOptions :: [Text]
+, optionsResult :: Either Text (Options -> Options)
+}
+
 options :: Text -> [Text] -> Either Text Options
 options progName args = 
-  if hasShellArg args then 
-    newOptions $ withoutShellArg args
-  else
-    optionsWorker args
+  let optionsHandler | hasShellArg args = newStyleOption
+                     | otherwise = oldStyleOption
+      shellArgFilter | hasShellArg args = withoutShellArg
+                     | otherwise = id
+      optionsCaller _ (OptionsParser [] t) = t
+      optionsCaller f (OptionsParser (hd:tl) res) =
+        let (OptionsParser newRemaining newRes) = f hd tl
+        in optionsCaller f $ OptionsParser newRemaining ((.) <$> newRes <*> res)
+  in (\a -> a def) <$> optionsCaller optionsHandler (OptionsParser (shellArgFilter args) (Right id))
 
-  where optionsWorker :: [Text] -> Either Text Options
-        optionsWorker [] = Right def
-        optionsWorker (wd:wds) = case wd of
-          "-p" -> handlePackageSwitch optionsWorker wds
-          "--packages" -> handlePackageSwitch optionsWorker wds
-          _ -> baseOptions optionsWorker (wd:wds)
-        newOptions [] = Right def
-	newOptions (wd:wds)
-          | wd == "-p"
-            = Left "-p not supported with new style commands"
-          | wd == "--packages"
-            = Left "--packages not supported with new style commands"
-          | isSwitch wd
-            = baseOptions newOptions (wd:wds)
-          | otherwise
-            = appendPackages [wd] <$> newOptions wds
-	baseOptions :: ([Text] -> Either Text Options) -> [Text] -> Either Text Options
-	baseOptions f (wd:wds) = case wd of
-          "--command" -> handleCommandSwitch f wds
-          "-h" -> handleHelpSwitch
-          "--help" -> handleHelpSwitch
-          "--run" -> handleCommandSwitch f wds
-          "--verbose" -> f wds
-	  _ -> f wds
-	baseOptions _ _ = Right def
-        handlePackageSwitch f wds = let (pkgs, remainingOptions) = consumePackageArgs wds
-                                    in appendPackages pkgs <$> f remainingOptions
-        handleCommandSwitch _ [] = Left "Argument missing to switch"
-        handleCommandSwitch _ (hd:_) | isSwitch hd
-                                     = Left "Argument missing to switch"
-        handleCommandSwitch f (hd:tl) = setCommand hd <$> f tl
-
-        handleHelpSwitch = Left $ helpText progName
+  where oldStyleOption :: Text -> [Text] -> OptionsParser
+        oldStyleOption "-p" = handlePackageSwitch
+        oldStyleOption "--packages" = handlePackageSwitch
+        oldStyleOption opt = baseOption opt
+        newStyleOption "-p" = returnError "-p not supported with new style commands"
+        newStyleOption "--packages" = returnError "--packages not supported with new style commands"
+        newStyleOption arg | isSwitch arg = baseOption arg
+                           | otherwise = transformOptionsWith $ appendPackages [arg]
+        baseOption :: Text -> [Text] -> OptionsParser
+        baseOption "-h" = returnError $ helpText progName
+        baseOption "--help" = returnError $ helpText progName
+        baseOption "--verbose" = doNothing
+        baseOption "--command" = handleCommandSwitch
+        baseOption "--run" = handleCommandSwitch
+        baseOption _ = transformOptionsWith id
+        doNothing = transformOptionsWith id
+        transformOptionsWith fun wds = OptionsParser wds (Right fun)
+        handlePackageSwitch wds = let (pkgs, remainingOptions) = consumePackageArgs wds
+                                  in transformOptionsWith (appendPackages pkgs) remainingOptions
+        handleCommandSwitch (hd:tl) | isSwitch hd
+                                    = returnError "Argument missing to switch" tl
+                                    | otherwise
+                                    = transformOptionsWith (setCommand hd) tl
+        handleCommandSwitch [] = returnError "Argument missing to switch" []
 
         appendPackages ps opts = opts{packages=ps ++ packages opts}
         setCommand cmd opts = opts{command=Just cmd}
+        returnError errorText remaining = OptionsParser remaining $ Left errorText
 
 consumePackageArgs :: [Text] -> (Packages, [Text])
 consumePackageArgs = worker []
@@ -92,7 +94,7 @@ consumePackageArgs = worker []
         worker pkgs (hd:tl) = worker (hd:pkgs) tl
 
 run :: Options -> IO ()
-run (Options{packages=[]}) = printError noPackagesError
+run Options{packages=[]} = printError noPackagesError
 run options = createShellFile options
 
 generateShellDotNixText :: Options -> IO (Either Text Text)
@@ -171,4 +173,4 @@ hasShellArg (hd:tl) | isSwitch hd = hasShellArg tl
 
 withoutShellArg [] = []
 withoutShellArg ("shell":tl) = tl
-withoutShellArg (hd:tl) = hd : (withoutShellArg tl)
+withoutShellArg (hd:tl) = hd : withoutShellArg tl
