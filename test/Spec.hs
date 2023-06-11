@@ -112,6 +112,6 @@ shouldReturnFlakeTextOf input expectedOutputFile =
 
 readNixTemplate fileName =
     stripTrailingNewline <$> readFile ( "test/outputs/" <> fileName <> ".nix")
-    where stripTrailingNewline f = if (last f) == '\n'
+    where stripTrailingNewline f = if last f == '\n'
                                    then reverse . tail . reverse $ f
                                    else f
