@@ -11,6 +11,11 @@
       packages.x86_64-linux.default = (pkgs.haskell.lib.overrideCabal (
         pkgs.haskellPackages.developPackage {
             root = ./.;
+            modifier = drv:
+              pkgs.haskell.lib.addBuildTools drv (with pkgs.haskellPackages;
+                [ cabal-install
+                  hlint
+                ]);
         }
       ) {
         enableSeparateDataOutput = false;

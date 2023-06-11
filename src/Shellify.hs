@@ -1,43 +1,42 @@
-module Shellify (Options(..), def, generateShellDotNixText, Packages, options, run) where
+module Shellify (Options(..), def, generateShellDotNixText, generateFlakeText, Packages, options, run) where
 
 import Prelude hiding (takeWhile, writeFile)
 import Constants
+import FlakeTemplate
+import ShellifyTemplate
 
 import Control.Applicative ((<|>))
 import Control.Arrow ((+++))
 import Control.Monad (when)
-import Control.Monad.Writer (Writer)
 import Data.Bool (bool)
 import Data.Default.Class (Default(def))
-import Data.List (sort)
-import Data.Maybe (fromJust)
+import Data.List (find, sort)
+import Data.Maybe (fromMaybe)
 import Data.Set (fromList, toList)
-import Data.Text (intercalate, isInfixOf, isPrefixOf, pack, replace, stripPrefix, takeWhile, Text())
+import Data.Text (isInfixOf, isPrefixOf, pack, replace, splitOn, stripPrefix, takeWhile, Text(), unpack)
 import Data.Text.IO (hPutStrLn, writeFile)
 import qualified Data.Text.IO as Text
 import GHC.IO.Exception (ExitCode(ExitSuccess, ExitFailure))
-import Paths_shellify (getDataFileName)
 import System.Directory (doesPathExist)
 import System.Exit (exitWith)
-import System.IO.Error (tryIOError)
-import System.IO (hGetContents, stderr)
-import Text.Ginger (dict, easyRender, GVal(GVal), Pair, parseGingerFile, Run, SourcePos, (~>))
+import System.IO (stderr)
+import Text.StringTemplate (newSTMP, render, setAttribute, StringTemplate)
 
 type Package = Text
 type Packages = [ Package ]
 data Options = Options {
     packages :: Packages
   , command :: Maybe Text
-  , help :: Bool
+  , generateFlake :: Bool
 } deriving (Show)
 
 instance Default Options where
   def = Options [] Nothing False
 
 instance Eq Options where
-  a == b =  isEqual help
-         && isEqual command
+  a == b =  isEqual command
          && isEqual (sort . packages)
+         && isEqual generateFlake
     where isEqual f = f a == f b
 
 data OptionsParser = OptionsParser {
@@ -71,6 +70,7 @@ options progName args =
         baseOption "--verbose" = doNothing
         baseOption "--command" = handleCommandSwitch
         baseOption "--run" = handleCommandSwitch
+        baseOption "--with-flake" = transformOptionsWith setFlakeGeneration
         baseOption _ = transformOptionsWith id
         doNothing = transformOptionsWith id
         transformOptionsWith fun wds = OptionsParser wds (Right fun)
@@ -84,6 +84,7 @@ options progName args =
 
         appendPackages ps opts = opts{packages=ps ++ packages opts}
         setCommand cmd opts = opts{command=Just cmd}
+        setFlakeGeneration opts = opts{generateFlake=True}
         returnError errorText remaining = OptionsParser remaining $ Left errorText
 
 consumePackageArgs :: [Text] -> (Packages, [Text])
@@ -94,33 +95,58 @@ consumePackageArgs = worker []
         worker pkgs (hd:tl) = worker (hd:pkgs) tl
 
 run :: Options -> IO ()
-run Options{packages=[]} = printError noPackagesError
-run options = createShellFile options
+run Options{packages=[]} = printErrorAndReturnFailure noPackagesError >>= exitWith
+run options = do shellRes <- createShellFile options
+                 maybe (exitWith shellRes)
+                       (\flakeText ->
+                         createFile "flake.nix" flakeText >>= exitWith . fromMaybe ExitSuccess . find (/= ExitSuccess) . (shellRes :) . pure
+                       )
+                       $ generateFlakeText options
 
-generateShellDotNixText :: Options -> IO (Either Text Text)
-generateShellDotNixText (Options packages command _) =
-   (+++) (pack . show)
-         (easyRender context)
-  <$> parseShellifyTemplate
-  where pkgs = generateBuildInput <$> packages
-        parameters = intercalate ", " $ uniq $ generateParameters <$> packages
-        context :: GVal (Run SourcePos (Writer Text) Text)
-        context = dict $ [ ("build_inputs" :: Text) ~> pkgs
-                         , ("parameters" :: Text) ~> parameters
-                         ]
-                         <> maybe []
-                                  (return . (("shell_hook" :: Text) ~>))
-                                  command
-        loadFileMay fn = rightToMaybe <$> tryIOError (readFile fn)
-        parseShellifyTemplate =     getDataFileName "templates/shellify.nix.j2"
-                                >>= parseGingerFile loadFileMay
+generateFlakeText :: Options -> Maybe Text
+generateFlakeText Options{packages=packages, generateFlake=flake} =
+  bool
+    Nothing
+    (Just $ render $ setAttribute "repos" repos
+          $ setAttribute "unknown_repos" unknownRepos
+          $ setAttribute "repo_vars" repoVars
+          $ newSTMP flakeTemplate)
+    flake
+  where repos = uniq $ getPackageRepo <$> (sort packages)
+        importVars = toImportVar <$> repos
+        repoVars = uniq $ getPackageRepoVarName . getPackageRepo <$> (sort packages)
+        unknownRepos = filter (/= "nixpkgs") repos
 
-generateBuildInput input  | "nixpkgs#" `isPrefixOf` input
-                            = ("pkgs." <>) $ fromJust $ stripPrefix "nixpkgs#" input
-                          | "#" `isInfixOf` input
-                            = replace "#" "." input
-                          | otherwise
-                            = "pkgs." <> input
+generateShellDotNixText :: Options -> Text
+generateShellDotNixText Options{packages=packages, command=command} =
+  render
+  $ setAttribute "build_inputs" pkgs
+  $ setAttribute "parameters" parameters
+  $ maybe id
+          (setAttribute "shell_hook")
+          command
+  $ newSTMP shellifyTemplate
+  where pkgs = generateBuildInput <$> (sort packages)
+        parameters = uniq $ generateParameters <$> (sort packages)
+        generateBuildInput input = (toImportVar . getPackageRepo) input <> "." <> getPackageName input
+
+getPackageRepo input | "#" `isInfixOf` input
+                        = head $ splitOn "#" input
+                     | otherwise
+                        = "nixpkgs"
+
+getPackageName input | "#" `isInfixOf` input
+                        = head $ tail $ splitOn "#" input
+                     | otherwise
+                        = input
+
+toImportVar var | var == "nixpkgs"
+                  = "pkgs"
+                | otherwise
+                  = var
+
+getPackageRepoVarName "nixpkgs" = "pkgs"
+getPackageRepoVarName a = a
 
 generateParameters :: Package -> Text
 generateParameters package | "nixpkgs#" `isPrefixOf` package = pkgsImport
@@ -128,27 +154,24 @@ generateParameters package | "#" `isInfixOf` package = takeWhile (/= '#') packag
 generateParameters package = pkgsImport
 pkgsImport = "pkgs ? import <nixpkgs> {}" :: Text
 
-createShellFile :: Options -> IO ()
-createShellFile opts =
-  generateShellDotNixText opts
-  >>= either printError
-             writeShellFile
+createShellFile :: Options -> IO ExitCode
+createShellFile = createFile "shell.nix" . generateShellDotNixText
 
-writeShellFile :: Text -> IO ()
-writeShellFile expectedContents = do
-  fileContents <-     doesPathExist "shell.nix"
+createFile :: FilePath -> Text -> IO ExitCode
+createFile fileName expectedContents = do
+  fileContents <-     doesPathExist fileName
                   >>= bool
                        (return Nothing)
-                       (Just <$> Text.readFile "shell.nix")
-  printError $ actionDescription expectedContents fileContents
+                       (Just <$> Text.readFile fileName)
+  printError $ actionDescription (pack fileName) expectedContents fileContents
   when (shouldGenerateNewFile fileContents)
-    $ writeFile "shell.nix" expectedContents
-  exitWith $ returnCode expectedContents fileContents
+    $ writeFile fileName expectedContents
+  return $ returnCode expectedContents fileContents
 
-actionDescription :: Text -> Maybe Text -> Text
-actionDescription _ Nothing = "shell.nix does not exist. Creating one"
-actionDescription a (Just b) | a == b = "The existing shell.nix is good already"
-actionDescription _ _ = "A shell.nix exists already. Delete it or move it and try again"
+actionDescription :: Text -> Text -> Maybe Text -> Text
+actionDescription fName _ Nothing = fName <> " does not exist. Creating one"
+actionDescription fName a (Just b) | a == b = "The existing " <> fName <> " is good already"
+actionDescription fName _ _ = "A " <> fName <> " exists already. Delete it or move it and try again"
 
 returnCode :: Text -> Maybe Text -> ExitCode
 returnCode _ Nothing = ExitSuccess
@@ -161,6 +184,7 @@ shouldGenerateNewFile = (== Nothing)
 uniq :: Ord a => [a] -> [a]
 uniq = toList . fromList
 
+printErrorAndReturnFailure err = printError err >> return (ExitFailure 1)
 printError = hPutStrLn stderr
 rightToMaybe = either (const Nothing) Just
 

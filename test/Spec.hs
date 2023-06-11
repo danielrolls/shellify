@@ -1,24 +1,35 @@
-import Prelude hiding (readFile)
+import Prelude hiding (readFile, last, putStrLn, reverse, tail)
 import Data.Either (isLeft)
-import Data.Text (Text())
-import Data.Text.IO (readFile)
+import Data.Maybe (fromJust)
+import Data.Text (Text(), last, pack, reverse, tail)
+import Data.Text.IO (readFile, putStrLn)
 import Shellify
-import Test.Hspec (Expectation(), hspec, it, shouldBe, shouldReturn, shouldSatisfy)
+import Test.Hspec (describe, Expectation(), hspec, it, shouldBe, shouldReturn, shouldSatisfy)
+
 
 main :: IO ()
 main = hspec $ do
-     it "should produce the expected shell.nix for 2 simple buildInputs" $
-       generateShellDotNixText def{packages=["python", "cowsay"]}
-         `shouldReturnShellTextOf`
-       "simple-two-build-inputs"
+     describe "when two buildInputs are required from two sources" $ do
+       let input = def{packages=[ "foo#cowsay", "nixpkgs#python" ], generateFlake=True}
+       it "should produce the expected shell.nix" $
+         input `shouldReturnShellTextOf` "two-build-inputs-from-two-sources"
+       it "should produce the exected flake.nix" $
+         input `shouldReturnFlakeTextOf` "flake-for-two-inputs"
+
+     describe "when using 2 simple buildInputs from one source" $ do
+       let input = def{packages=["python", "cowsay"], generateFlake=True}
+       it "should produce the expected shell.nix" $
+         input `shouldReturnShellTextOf` "simple-two-build-inputs"
+       it "should produce the expected flake.nix" $
+         input `shouldReturnFlakeTextOf` "flake-for-a-nixpkgs-input"
 
      it "should produce the expected shell.nix for 2 nixpkgs buildInputs" $
-       generateShellDotNixText def{packages=["nixpkgs#python", "nixpkgs#cowsay"]}
+       def{packages=["nixpkgs#python", "nixpkgs#cowsay"]}
          `shouldReturnShellTextOf`
        "simple-two-build-inputs"
 
      it "should produce the expected shell.nix for multiple repo sources" $
-       generateShellDotNixText def{packages=["nixpkgs#python", "foo#cowsay"]}
+       def{packages=["nixpkgs#python", "foo#cowsay"]}
          `shouldReturnShellTextOf`
        "multiple-repository-sources"
 
@@ -81,18 +92,26 @@ main = hspec $ do
        isLeft
 
      it "should produce the expected shell.nix when a command is specified" $
-       generateShellDotNixText def{packages=["python", "cowsay"], command=Just "cowsay"}
+       def{packages=["python", "cowsay"], command=Just "cowsay"}
          `shouldReturnShellTextOf`
        "two-build-inputs-and-command"
 
 shouldResultInPackages :: [Text] -> [Text] -> Expectation
-shouldResultInPackages inputParameters packages =
-     options (head inputParameters) (tail inputParameters)
+shouldResultInPackages (par:parms) packages =
+     options par parms
        `shouldBe`
      Right def{packages=packages}
 
-shouldReturnShellTextOf :: IO (Either Text Text) -> FilePath -> IO ()
-shouldReturnShellTextOf actualGeneratedNixShell expectedOutputFile =
-      readFile ( "test/outputs/" <> expectedOutputFile <> ".nix")
-  >>= shouldReturn actualGeneratedNixShell . Right 
+shouldReturnShellTextOf :: Options -> FilePath -> IO ()
+shouldReturnShellTextOf input expectedOutputFile =
+      readNixTemplate expectedOutputFile >>= shouldBe (generateShellDotNixText input)
 
+shouldReturnFlakeTextOf :: Options -> FilePath -> IO ()
+shouldReturnFlakeTextOf input expectedOutputFile =
+      readNixTemplate expectedOutputFile >>= shouldBe (fromJust (generateFlakeText input))
+
+readNixTemplate fileName =
+    stripTrailingNewline <$> readFile ( "test/outputs/" <> fileName <> ".nix")
+    where stripTrailingNewline f = if (last f) == '\n'
+                                   then reverse . tail . reverse $ f
+                                   else f
