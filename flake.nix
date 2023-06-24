@@ -23,6 +23,7 @@
         installPhase = old.installPhase + ''  
           ln -s $out/bin/shellify $out/bin/nix-shellify
         '';
+        buildInputs = old.buildInputs ++ [ pkgs.nix ];
       });
     };
 }

@@ -9,8 +9,8 @@ flakeTemplate = [r|{
   inputs = {
 
     flake-utils.url = "github:numtide/flake-utils";
-    nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";$unknown_repos :{ ur |
-    $ur$.url = "PLEASE ENTER input here";}$
+    $repo_inputs;separator='
+    '$
 
   };
 

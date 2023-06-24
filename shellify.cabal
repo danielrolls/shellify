@@ -10,35 +10,38 @@ copyright: (c) 2023 Daniel Rolls
 
 category: Packaging
 extra-source-files:
-    CHANGELOG.md
-    test/outputs/*.nix
+        CHANGELOG.md
+        test/outputs/*.nix
 
 common deps
     default-language: GHC2021
     build-depends:
         base,
+        raw-strings-qq,
         text
     default-extensions:
         LambdaCase
         OverloadedStrings
+        QuasiQuotes
    
 library
     import: deps
     exposed-modules:
         Constants
         FlakeTemplate
+        Options
         Shellify
         ShellifyTemplate
+        TemplateGeneration
     hs-source-dirs: src
-    default-extensions:
-        QuasiQuotes
     build-depends:
         containers,
         data-default-class,
         directory,
+        extra,
         HStringTemplate,
         mtl,
-        raw-strings-qq,
+        shake,
         unordered-containers
 
 executable shellify
