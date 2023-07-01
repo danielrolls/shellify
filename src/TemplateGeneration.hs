@@ -24,7 +24,8 @@ generateFlakeText db Options{packages=packages, generateFlake=shouldGenerateFlak
     (Just $ render
           $ setAttribute "repo_inputs" repoInputs
           $ setAttribute "repos" repos
-          $ setAttribute "repo_vars" repoVars
+          $ setAttribute "pkgs_decls" pkgsDecls
+          $ setAttribute "shell_args" shellArgs
           $ newSTMP flakeTemplate)
     shouldGenerateFlake
   where repos = uniq $ getPackageRepo <$> sort packages
@@ -36,6 +37,10 @@ generateFlakeText db Options{packages=packages, generateFlake=shouldGenerateFlak
             (error "Unexpected output from nix registry call: " <>)
             (fromMaybe "PLEASE ENTER input here")
             . findFlakeRepoUrl db $ repoName
+        pkgsVar = (<> "Pkgs")
+        pkgsVars = pkgsVar <$> repos
+        pkgsDecls = (\repo -> pkgsDecl (pkgsVar repo) repo) <$> repos
+        shellArgs = (\(a,b) -> a <> "=" <> b <> ";") <$> zip repoVars pkgsVars 
 
 generateShellDotNixText :: Options -> Text
 generateShellDotNixText Options{packages=packages, command=command} =

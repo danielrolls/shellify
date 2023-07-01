@@ -12,9 +12,11 @@
   outputs = { self, blender-bin, nixpkgs, flake-utils }:
     flake-utils.lib.eachDefaultSystem
       (system:
-        let pkgs = nixpkgs.legacyPackages.${system}; in
+        let blender-binPkgs = if builtins.hasAttr "packages" blender-bin then blender-bin.packages.${system} else ( if builtins.hasAttr "legacyPackages" blender-bin then blender-bin.legacyPackages.${system} else blender-bin);
+            nixpkgsPkgs = if builtins.hasAttr "packages" nixpkgs then nixpkgs.packages.${system} else ( if builtins.hasAttr "legacyPackages" nixpkgs then nixpkgs.legacyPackages.${system} else nixpkgs);
+        in
         {
-          devShells.default = import ./shell.nix { inherit blender-bin pkgs; };
+          devShells.default = import ./shell.nix { blender-bin=blender-binPkgs; pkgs=nixpkgsPkgs; };
         }
       );
 }

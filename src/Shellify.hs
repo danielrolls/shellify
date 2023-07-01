@@ -24,7 +24,7 @@ run :: Options -> IO ()
 run Options{packages=[]} = printErrorAndReturnFailure noPackagesError >>= exitWith
 run options = getRegistryDB
               >>= \case
-		   Left err -> printErrorAndReturnFailure ("Error calling nix registry: " <> err) >>= exitWith
+                   Left err -> printErrorAndReturnFailure ("Error calling nix registry: " <> err) >>= exitWith
                    Right registryDB ->
                      do shellRes <- createShellFile options
                         maybe

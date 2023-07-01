@@ -14,7 +14,6 @@ import TestConstants
 main :: IO ()
 main =
  do hspec $ do
-     -- it "" $ "fail" `shouldBe` "now"
 
      describe "When passing option combinations" $ do
        it "should allow a simple command to be specified with a package" $
@@ -84,7 +83,7 @@ main =
        let input = def{packages=[ "foo#cowsay", "nixpkgs#python" ], generateFlake=True}
        it "should produce the expected shell.nix" $
          input `shouldReturnShellTextOf` "two-build-inputs-from-two-sources"
-       it "should produce the exected flake.nix" $
+       it "should produce the expected flake.nix" $
          input `shouldReturnFlakeTextOf` "flake-for-two-inputs"
 
      describe "when using 2 simple buildInputs from one source" $ do
@@ -136,6 +135,6 @@ shouldReturnFlakeTextOf input expectedOutputFile =
 
 readNixTemplate fileName =
     stripTrailingNewline <$> readFile ( "test/outputs/" <> fileName <> ".nix")
-    where stripTrailingNewline f = (bool id stripLastChar (lastCharIsNewline f)) f
+    where stripTrailingNewline f = bool id stripLastChar (lastCharIsNewline f) f
           lastCharIsNewline = (== '\n') . last
           stripLastChar = reverse . tail . reverse

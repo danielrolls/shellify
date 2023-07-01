@@ -12,9 +12,11 @@
   outputs = { self, foo, nixpkgs, flake-utils }:
     flake-utils.lib.eachDefaultSystem
       (system:
-        let pkgs = nixpkgs.legacyPackages.${system}; in
+        let fooPkgs = if builtins.hasAttr "packages" foo then foo.packages.${system} else ( if builtins.hasAttr "legacyPackages" foo then foo.legacyPackages.${system} else foo);
+            nixpkgsPkgs = if builtins.hasAttr "packages" nixpkgs then nixpkgs.packages.${system} else ( if builtins.hasAttr "legacyPackages" nixpkgs then nixpkgs.legacyPackages.${system} else nixpkgs);
+        in
         {
-          devShells.default = import ./shell.nix { inherit foo pkgs; };
+          devShells.default = import ./shell.nix { foo=fooPkgs; pkgs=nixpkgsPkgs; };
         }
       );
 }

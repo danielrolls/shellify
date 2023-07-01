@@ -17,9 +17,11 @@ flakeTemplate = [r|{
   outputs = { self, $repos;separator=', '$, flake-utils }:
     flake-utils.lib.eachDefaultSystem
       (system:
-        let pkgs = nixpkgs.legacyPackages.\${system}; in
+        let $pkgs_decls;separator='
+            '$
+        in
         {
-          devShells.default = import ./shell.nix { inherit $repo_vars;separator=' '$; };
+          devShells.default = import ./shell.nix { $shell_args;separator=' '$ };
         }
       );
 }|]

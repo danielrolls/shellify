@@ -15,6 +15,7 @@
               pkgs.haskell.lib.addBuildTools drv (with pkgs.haskellPackages;
                 [ cabal-install
                   hlint
+                  haskell-language-server
                 ]);
         }
       ) {
