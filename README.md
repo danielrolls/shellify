@@ -1,6 +1,6 @@
 # Shellify
 
-Want to quicky get something to build and to have it reproducable and sharable? With [`nix`](https://nixos.org/manual/nix/stable/command-ref/nix-shell.html) it is easy to quickly add dependencies to get something to build. It's also easy to work quickly and iteratively. With this tool, once you're done you can save a `shell.nix` so that you and anybody else can quickly and instantly rebuild with an identical environment with all the same dependencies. With this tool you can quickly swap out `nix-shell` or `nix shell` for `nix-shellify` to create a `shell.nix`. This saves searches and typing. It makes saving a basic working `shell.nix` almost instant. Read one of the short examples below to understand the workflow.
+Want to quicky get something to build and to have it reproducable and sharable? With [`nix`](https://nixos.org/manual/nix/stable/command-ref/nix-shell.html) it is easy to quickly add dependencies to get something to build. It's also easy to work quickly and iteratively. With this tool, once you're done you can save a `shell.nix` so that you and anybody else can quickly and instantly rebuild with an identical environment with all the same dependencies. With this tool you can quickly swap out `nix-shell` or `nix shell` for `nix-shellify` to create the necessary `shell.nix`. It makes saving a basic working `shell.nix` almost instant. Read one of the short examples below to understand the workflow.
 
 ## Prerequisites
 
