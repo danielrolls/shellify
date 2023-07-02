@@ -23,6 +23,3 @@ Now it complains I didn't have asciidoc so I come out of the shell and edit the 
 
 I exit my shell and change `nix shell nixpkgs#python nixpkgs#asciidoc` to `nix-shellify --with-flakes nixpkgs#python nixpkgs#asciidoc`. It then creates a `flake.nix` and `shell.nix` which I commit in git next to foo. Now I can just type `nix develop` and I have what I need to run foo. I can share and everybody else can run foo too without the same search. I can also go on to tell nix to run as an app or to just make `foo` avaiable handling dependencies for me. 
 
-## Contributions
-
-To build this project just run `nix build`. To hack it run `nix develop` to bring in all dependencies. Feel free to raise PRs. Small iterations are always better than major rewrites. If you are ont confident writing Haskell you may find it easier to add a test case for what you want in `test/Spec.hs`. This is easy to do without really understamnding the code by copying a test case and editing the parameters ands expected result. This is probably the easiest way to communicate an intended change. Just creating an issue is ok too.
