@@ -1,15 +1,13 @@
 module Main where
 
-import Data.Text.IO (hPutStrLn)
 import Data.Text (pack)
-import Shellify (options, run)
+import Shellify (runShellify)
 import System.Environment (getArgs, getProgName)
-import System.IO (stderr)
 
 main :: IO ()
 main = do
   progName <- pack <$> getProgName
-  args <- getArgs
-  either (hPutStrLn stderr)
-         run
-    <$> options progName $ fmap pack args
+  getTextArgs
+    >>= runShellify . (<>) [progName]
+
+getTextArgs = fmap pack <$> getArgs

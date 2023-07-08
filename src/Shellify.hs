@@ -1,15 +1,15 @@
-module Shellify (Options(..), Packages, options, run) where
+module Shellify (parseOptionsAndCalculateExpectedFiles, runShellify) where
 
 import Prelude hiding (writeFile)
 import Constants
 import FlakeTemplate
+import Options
 import ShellifyTemplate
+import TemplateGeneration
 
 import Control.Monad (when, (>=>))
 import Data.Bool (bool)
-import Data.List (find)
-import Data.Maybe (fromMaybe)
-import Data.Text (pack, Text())
+import Data.Text (pack, Text(), unpack)
 import Data.Text.IO (hPutStrLn, writeFile)
 import qualified Data.Text.IO as Text
 import GHC.IO.Exception (ExitCode(ExitSuccess, ExitFailure))
@@ -17,23 +17,30 @@ import System.Directory (doesPathExist)
 import System.Exit (exitWith)
 import System.IO (stderr)
 
-import Options
-import TemplateGeneration
+createAFile (name, content) = do extCde <- createFile (unpack name) content
+                                 when (extCde /= ExitSuccess)
+                                   $ exitWith extCde
 
-run :: Options -> IO ()
-run Options{packages=[]} = printErrorAndReturnFailure noPackagesError >>= exitWith
-run options = getRegistryDB
-              >>= \case
-                   Left err -> printErrorAndReturnFailure ("Error calling nix registry: " <> err) >>= exitWith
-                   Right registryDB ->
-                     do shellRes <- createShellFile options
-                        maybe
-                          (exitWith shellRes)
-                          (createFile "flake.nix" >=> (exitWith . fromMaybe ExitSuccess . find (/= ExitSuccess) . (shellRes :) . pure))
-                          $ generateFlakeText registryDB options
 
-createShellFile :: Options -> IO ExitCode
-createShellFile = createFile "shell.nix" . generateShellDotNixText
+runShellify :: [Text] -> IO ()
+runShellify(pName:args) = getRegistryDB
+             >>= either
+                   ((printErrorAndReturnFailure . ("Error calling nix registry: " <>) ) >=> exitWith)
+                   (\registryDB -> either printError
+                                          (mapM_ createAFile)
+                                          $ parseOptionsAndCalculateExpectedFiles registryDB pName args)
+
+
+parseOptionsAndCalculateExpectedFiles :: Text -> Text -> [Text] -> Either Text [(Text,Text)]
+parseOptionsAndCalculateExpectedFiles registry programName =
+  fmap
+    (\opts ->
+        ("shell.nix", generateShellDotNixText opts)
+      : maybe
+            []
+            (pure . ("flake.nix",))
+            (generateFlakeText registry opts))
+  . options programName
 
 createFile :: FilePath -> Text -> IO ExitCode
 createFile fileName expectedContents = do

@@ -4,7 +4,8 @@ import Data.Either (isLeft, isRight)
 import Data.Maybe (fromJust)
 import Data.Text (Text(), last, reverse, tail)
 import Data.Text.IO (readFile, putStrLn)
-import Test.Hspec (describe, Expectation(), hspec, it, shouldBe, shouldReturn, shouldSatisfy)
+import Test.Hspec (describe, Expectation(), hspec, it, shouldBe, shouldContain, shouldReturn, shouldSatisfy)
+import Test.Hspec.Core.Spec (SpecM)
 
 import Options
 import Shellify
@@ -79,26 +80,20 @@ main =
            `shouldSatisfy`
          isLeft
 
-     describe "when two buildInputs are required from two sources" $ do
-       let input = def{packages=[ "foo#cowsay", "nixpkgs#python" ], generateFlake=True}
-       it "should produce the expected shell.nix" $
-         input `shouldReturnShellTextOf` "two-build-inputs-from-two-sources"
-       it "should produce the expected flake.nix" $
-         input `shouldReturnFlakeTextOf` "flake-for-two-inputs"
+     describe "when two buildInputs are required from two sources" $
+       ["nix-shellify", "--with-flake", "shell", "foo#cowsay", "nixpkgs#python"]
+         `shouldReturnShellAndFlakeTextDefinedBy`
+       "inputs-from-know-and-unknown-sources"
 
-     describe "when using 2 simple buildInputs from one source" $ do
-       let input = def{packages=["python", "cowsay"], generateFlake=True}
-       it "should produce the expected shell.nix" $
-         input `shouldReturnShellTextOf` "simple-two-build-inputs"
-       it "should produce the expected flake.nix" $
-         input `shouldReturnFlakeTextOf` "flake-for-a-nixpkgs-input"
+     describe "when using 2 simple buildInputs from one source" $
+       ["nix-shellify", "shell", "--with-flake", "python", "cowsay"]
+         `shouldReturnShellAndFlakeTextDefinedBy`
+       "two-nixpkgs-inputs"
 
-     describe "when pulling from 2 different known sources" $ do
-       let input = def{packages=["nixpkgs#python", "blender-bin#blender_3_5"], generateFlake=True}
-       it "should produce the expected shell.nix" $
-         input `shouldReturnShellTextOf` "inputs-from-different-registries"
-       it "should produce the expected flake.nix" $
-         input `shouldReturnFlakeTextOf` "flake-for-two-inputs-from-two-registries"
+     describe "when pulling from 2 different known sources" $
+       ["nix-shellify", "shell", "--with-flake", "nixpkgs#python", "blender-bin#blender_3_5"]
+         `shouldReturnShellAndFlakeTextDefinedBy`
+       "inputs-from-different-registries"
 
      describe "when a command is specified" $
        it "should produce the expected shell.nix" $
@@ -110,7 +105,7 @@ main =
        it "should produce the expected shell.nix" $
          def{packages=["nixpkgs#python", "nixpkgs#cowsay"]}
            `shouldReturnShellTextOf`
-         "simple-two-build-inputs"
+	 "two-nixpkgs-inputs"
 
      describe "when working with multiple repos for known and unknown sources" $
        it "should produce the expected shell.nix" $
@@ -118,6 +113,14 @@ main =
            `shouldReturnShellTextOf`
          "multiple-repository-sources"
 
+shouldReturnShellAndFlakeTextDefinedBy :: [Text] -> String -> SpecM () ()
+shouldReturnShellAndFlakeTextDefinedBy (par:parms) expectedOutput =
+     it "should produce the expected shell.nix and flake.nix" $
+       do expShell <- readNixTemplate (shellFile expectedOutput)
+          expFlake <- readNixTemplate (flakeFile expectedOutput)
+          parseOptionsAndCalculateExpectedFiles db par parms
+            `shouldBe`
+           Right [("shell.nix", expShell),("flake.nix", expFlake)]
 
 shouldResultInPackages :: [Text] -> [Text] -> Expectation
 shouldResultInPackages (par:parms) packages =
@@ -127,14 +130,18 @@ shouldResultInPackages (par:parms) packages =
 
 shouldReturnShellTextOf :: Options -> FilePath -> IO ()
 shouldReturnShellTextOf input expectedOutputFile =
-      readNixTemplate expectedOutputFile >>= shouldBe (generateShellDotNixText input)
+      readNixTemplate (shellFile expectedOutputFile) >>= shouldBe (generateShellDotNixText input)
 
 shouldReturnFlakeTextOf :: Options -> FilePath -> IO ()
 shouldReturnFlakeTextOf input expectedOutputFile =
-      readNixTemplate expectedOutputFile >>= shouldBe (fromJust (generateFlakeText db input))
+      readNixTemplate (flakeFile expectedOutputFile) >>= shouldBe (fromJust (generateFlakeText db input))
 
+readNixTemplate :: FilePath -> IO Text
 readNixTemplate fileName =
-    stripTrailingNewline <$> readFile ( "test/outputs/" <> fileName <> ".nix")
+    stripTrailingNewline <$> readFile ( "test/outputs/" <> fileName)
     where stripTrailingNewline f = bool id stripLastChar (lastCharIsNewline f) f
           lastCharIsNewline = (== '\n') . last
           stripLastChar = reverse . tail . reverse
+
+flakeFile = (<> "-flake.nix")
+shellFile = (<> "-shell.nix")
