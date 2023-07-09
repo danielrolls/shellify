@@ -52,7 +52,10 @@ options progName args =
       optionsCaller f (OptionsParser (hd:tl) res) =
         let (OptionsParser newRemaining newRes) = f hd tl
         in optionsCaller f $ OptionsParser newRemaining ((.) <$> newRes <*> res)
-  in (\a -> a def) <$> optionsCaller optionsHandler (OptionsParser (shellArgFilter args) (Right id))
+      screenForNoPackages (Right opts) | packages opts == [] = Left "No package specified"
+      screenForNoPackages (Right other) = Right other
+      screenForNoPackages (Left other) = Left other
+  in screenForNoPackages $ (\a -> a def) <$> optionsCaller optionsHandler (OptionsParser (shellArgFilter args) (Right (if hasShellArg args then setFlakeGeneration else id)))
 
   where oldStyleOption :: Text -> [Text] -> OptionsParser
         oldStyleOption "-p" = handlePackageSwitch

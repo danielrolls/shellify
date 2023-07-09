@@ -1,8 +1,8 @@
-import Prelude hiding (readFile, last, putStrLn, reverse, tail)
+import Prelude hiding (readFile, last, putStrLn, reverse, tail, words)
 import Data.Bool (bool)
 import Data.Either (isLeft, isRight)
 import Data.Maybe (fromJust)
-import Data.Text (Text(), last, reverse, tail)
+import Data.Text (Text(), last, reverse, tail, words)
 import Data.Text.IO (readFile, putStrLn)
 import Test.Hspec (describe, Expectation(), hspec, it, shouldBe, shouldContain, shouldReturn, shouldSatisfy)
 import Test.Hspec.Core.Spec (SpecM)
@@ -66,9 +66,14 @@ main =
          [ "cowsay" ]
 
        it "should support new shell commands" $
-         [ "nix-shellify", "shell", "nixpkgs#python", "nixpkgs#cowsay" ]
-           `shouldResultInPackages`
-         [ "nixpkgs#python", "nixpkgs#cowsay" ]
+         options "nix-shellify" [ "shell", "nixpkgs#python", "nixpkgs#cowsay" ]
+           `shouldBe`
+         Right def{packages=[ "nixpkgs#python", "nixpkgs#cowsay" ], generateFlake=True}
+
+       it "should complain if no package is specified" $
+         shellifyWithArgs "nipkgs#cowsay"
+           `shouldBe`
+         Left "No package specified"
 
        it "should not support -p with shell" $
          options "nix-shellify" [ "shell", "-p", "cowsay" ]
@@ -81,17 +86,17 @@ main =
          isLeft
 
      describe "when two buildInputs are required from two sources" $
-       ["nix-shellify", "--with-flake", "shell", "foo#cowsay", "nixpkgs#python"]
+       shellifyWithArgs "--with-flake shell foo#cowsay nixpkgs#python"
          `shouldReturnShellAndFlakeTextDefinedBy`
        "inputs-from-know-and-unknown-sources"
 
      describe "when using 2 simple buildInputs from one source" $
-       ["nix-shellify", "shell", "--with-flake", "python", "cowsay"]
+       shellifyWithArgs "shell --with-flake python cowsay"
          `shouldReturnShellAndFlakeTextDefinedBy`
        "two-nixpkgs-inputs"
 
      describe "when pulling from 2 different known sources" $
-       ["nix-shellify", "shell", "--with-flake", "nixpkgs#python", "blender-bin#blender_3_5"]
+       shellifyWithArgs "shell nixpkgs#python blender-bin#blender_3_5"
          `shouldReturnShellAndFlakeTextDefinedBy`
        "inputs-from-different-registries"
 
@@ -113,14 +118,14 @@ main =
            `shouldReturnShellTextOf`
          "multiple-repository-sources"
 
-shouldReturnShellAndFlakeTextDefinedBy :: [Text] -> String -> SpecM () ()
-shouldReturnShellAndFlakeTextDefinedBy (par:parms) expectedOutput =
+shellifyWithArgs = parseOptionsAndCalculateExpectedFiles db "nix-shellify" . words
+
+shouldReturnShellAndFlakeTextDefinedBy result expectedOutput =
      it "should produce the expected shell.nix and flake.nix" $
        do expShell <- readNixTemplate (shellFile expectedOutput)
           expFlake <- readNixTemplate (flakeFile expectedOutput)
-          parseOptionsAndCalculateExpectedFiles db par parms
-            `shouldBe`
-           Right [("shell.nix", expShell),("flake.nix", expFlake)]
+          result `shouldBe`
+              Right [("shell.nix", expShell),("flake.nix", expFlake)]
 
 shouldResultInPackages :: [Text] -> [Text] -> Expectation
 shouldResultInPackages (par:parms) packages =
