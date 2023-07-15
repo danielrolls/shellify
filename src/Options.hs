@@ -58,7 +58,7 @@ options progName args =
       initialArgumentsToParse = shellArgFilter args
       initialModifier = Right $ if hasShellArg args then setFlakeGeneration else id
       initialOptionParser = OptionsParser initialArgumentsToParse initialModifier
-  in screenForNoPackages $ (\f -> f def) <$> optionsCaller optionsHandler initialOptionParser
+  in screenForNoPackages $ ($ def) <$> optionsCaller optionsHandler initialOptionParser
 
   where oldStyleOption :: Text -> [Text] -> OptionsParser
         oldStyleOption "-p" = handlePackageSwitch
