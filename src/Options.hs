@@ -12,7 +12,6 @@ import Data.Bool (bool)
 import Data.Default.Class (Default(def))
 import Data.List (find, sort)
 import Data.Maybe (fromMaybe)
-import Data.Set (fromList, toList)
 import Data.Text (isInfixOf, isPrefixOf, pack, replace, splitOn, stripPrefix, takeWhile, Text(), unpack)
 import Data.Text.IO (hPutStrLn, writeFile)
 import qualified Data.Text.IO as Text
@@ -48,10 +47,12 @@ options progName args =
                      | otherwise = oldStyleOption
       shellArgFilter | hasShellArg args = filter (/= "shell")
                      | otherwise = id
-      optionsCaller _ (OptionsParser [] t) = t
-      optionsCaller f (OptionsParser (hd:tl) res) =
-        let (OptionsParser newRemaining newRes) = f hd tl
-        in optionsCaller f $ OptionsParser newRemaining ((.) <$> newRes <*> res)
+      optionsCaller f = worker 
+       where worker (OptionsParser [] t) = t
+             worker (OptionsParser (hd:tl) res) =
+               let (OptionsParser newRemaining newRes) = f hd tl
+               in worker $ OptionsParser newRemaining ((.) <$> newRes <*> res)
+
       screenForNoPackages (Right opts) | packages opts == [] = Left noPackagesError
       screenForNoPackages anyThingElse = anyThingElse
       initialArgumentsToParse = shellArgFilter args
