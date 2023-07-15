@@ -28,7 +28,7 @@ data Options = Options {
     packages :: Packages
   , command :: Maybe Text
   , generateFlake :: Bool
-} deriving (Show)
+}
 
 instance Default Options where
   def = Options [] Nothing False
@@ -46,16 +46,18 @@ options :: Text -> [Text] -> Either Text Options
 options progName args =
   let optionsHandler | hasShellArg args = newStyleOption
                      | otherwise = oldStyleOption
-      shellArgFilter | hasShellArg args = withoutShellArg
+      shellArgFilter | hasShellArg args = filter (/= "shell")
                      | otherwise = id
       optionsCaller _ (OptionsParser [] t) = t
       optionsCaller f (OptionsParser (hd:tl) res) =
         let (OptionsParser newRemaining newRes) = f hd tl
         in optionsCaller f $ OptionsParser newRemaining ((.) <$> newRes <*> res)
-      screenForNoPackages (Right opts) | packages opts == [] = Left "No package specified"
-      screenForNoPackages (Right other) = Right other
-      screenForNoPackages (Left other) = Left other
-  in screenForNoPackages $ (\a -> a def) <$> optionsCaller optionsHandler (OptionsParser (shellArgFilter args) (Right (if hasShellArg args then setFlakeGeneration else id)))
+      screenForNoPackages (Right opts) | packages opts == [] = Left noPackagesError
+      screenForNoPackages anyThingElse = anyThingElse
+      initialArgumentsToParse = shellArgFilter args
+      initialModifier = Right $ if hasShellArg args then setFlakeGeneration else id
+      initialOptionParser = OptionsParser initialArgumentsToParse initialModifier
+  in screenForNoPackages $ (\f -> f def) <$> optionsCaller optionsHandler initialOptionParser
 
   where oldStyleOption :: Text -> [Text] -> OptionsParser
         oldStyleOption "-p" = handlePackageSwitch
@@ -94,13 +96,9 @@ consumePackageArgs = worker []
                                    = (pkgs, options)
         worker pkgs (hd:tl) = worker (hd:pkgs) tl
 
-isSwitch = isPrefixOf "-"
-
 hasShellArg [] = False
 hasShellArg ("shell":_) = True
 hasShellArg (hd:tl) | isSwitch hd = hasShellArg tl
                     | otherwise = False
 
-withoutShellArg [] = []
-withoutShellArg ("shell":tl) = tl
-withoutShellArg (hd:tl) = hd : withoutShellArg tl
+isSwitch = isPrefixOf "-"

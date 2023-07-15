@@ -1,22 +1,45 @@
 import Prelude hiding (readFile, last, putStrLn, reverse, tail, words)
 import Data.Bool (bool)
-import Data.Either (isLeft, isRight)
-import Data.Maybe (fromJust)
-import Data.Text (Text(), last, reverse, tail, words)
+import Data.Text (isInfixOf, Text(), last, reverse, tail, words)
 import Data.Text.IO (readFile, putStrLn)
-import Test.Hspec (describe, Expectation(), hspec, it, shouldBe, shouldContain, shouldReturn, shouldSatisfy)
-import Test.Hspec.Core.Spec (SpecM)
+import Test.Hspec (describe, expectationFailure, Expectation(), hspec, it, shouldBe, shouldContain, shouldReturn, shouldSatisfy)
 
 import Options
 import Shellify
 import TemplateGeneration
 import TestConstants
 
+instance Show Options
+
 main :: IO ()
 main =
  do hspec $ do
 
      describe "When passing option combinations" $ do
+       it "should print a message saying no package is specified when no argument is supplied" $
+         shellifyWithArgs ""
+           `shellifyPrintedStringContaining`
+         "without any packages specified"
+
+       it "should complain if no package is specified" $
+         shellifyWithArgs "nipkgs#cowsay"
+           `shellifyPrintedStringContaining`
+         "without any packages specified"
+
+       it "should show help text when requested" $ do
+         shellifyWithArgs "-h"
+             `shellifyPrintedStringContaining` "USAGE:"
+         shellifyWithArgs "--help"
+             `shellifyPrintedStringContaining` "USAGE:"
+
+       it "should not support -p with shell" $ do
+         shellifyWithArgs "shell -p cowsay"
+            `shouldBe`
+           Left "-p not supported with new style commands"
+         shellifyWithArgs "shell nixpkgs#python --packages foo nixpkgs#cowsay"
+            `shouldBe`
+           Left "--packages not supported with new style commands"
+
        it "should allow a simple command to be specified with a package" $
          options "nix-shellify" ["-p", "python", "--command", "cowsay"]
            `shouldBe`
@@ -32,8 +55,13 @@ main =
            `shouldBe`
          Right def{packages=[ "cowsay", "python" ], command=Just "cowsay"}
 
-       it "Should fail if command has no argument" $
-         options "nix-shellify" ["--command", "-p", "python" ] `shouldSatisfy` isLeft
+       it "Should fail if command has no argument" $ do
+         shellifyWithArgs "--command -p python"
+             `shellifyPrintedStringContaining`
+           "Argument missing to switch"
+         shellifyWithArgs "--command"
+             `shellifyPrintedStringContaining`
+           "Argument missing to switch"
 
        it "should be able to specify one program to install after other arguments" $
          [ "nix-shellify", "foo", "-p", "python" ]
@@ -70,21 +98,6 @@ main =
            `shouldBe`
          Right def{packages=[ "nixpkgs#python", "nixpkgs#cowsay" ], generateFlake=True}
 
-       it "should complain if no package is specified" $
-         shellifyWithArgs "nipkgs#cowsay"
-           `shouldBe`
-         Left "No package specified"
-
-       it "should not support -p with shell" $
-         options "nix-shellify" [ "shell", "-p", "cowsay" ]
-           `shouldSatisfy`
-         isLeft
-
-       it "should not support -p switches when using new command style" $
-         options  "nix-shellify" [ "shell", "nixpkgs#python", "-p", "foo", "nixpkgs#cowsay"]
-           `shouldSatisfy`
-         isLeft
-
      describe "when two buildInputs are required from two sources" $
        shellifyWithArgs "--with-flake shell foo#cowsay nixpkgs#python"
          `shouldReturnShellAndFlakeTextDefinedBy`
@@ -101,23 +114,28 @@ main =
        "inputs-from-different-registries"
 
      describe "when a command is specified" $
-       it "should produce the expected shell.nix" $
-         def{packages=["python", "cowsay"], command=Just "cowsay"}
-           `shouldReturnShellTextOf`
+         shellifyWithArgs "-p python -p cowsay --command cowsay"
+           `shouldReturnShellTextDefinedBy`
          "two-build-inputs-and-command"
 
      describe "when working with 2 nixkgs buildInputs" $
-       it "should produce the expected shell.nix" $
-         def{packages=["nixpkgs#python", "nixpkgs#cowsay"]}
-           `shouldReturnShellTextOf`
-	 "two-nixpkgs-inputs"
+         shellifyWithArgs "shell nixpkgs#python nixpkgs#cowsay"
+           `shouldReturnShellTextDefinedBy`
+         "two-nixpkgs-inputs"
 
      describe "when working with multiple repos for known and unknown sources" $
-       it "should produce the expected shell.nix" $
-         def{packages=["nixpkgs#python", "foo#cowsay"]}
-           `shouldReturnShellTextOf`
+         shellifyWithArgs "shell nixpkgs#python foo#cowsay"
+           `shouldReturnShellTextDefinedBy`
          "multiple-repository-sources"
 
+shellifyPrintedStringContaining shellifyOutput expectedSubstring =
+    shouldSatisfy shellifyOutput
+      $ either
+          (expectedSubstring `isInfixOf`)
+          (const False)
+
+
+shellifyWithArgs :: Text -> Either Text [(Text, Text)]
 shellifyWithArgs = parseOptionsAndCalculateExpectedFiles db "nix-shellify" . words
 
 shouldReturnShellAndFlakeTextDefinedBy result expectedOutput =
@@ -127,23 +145,25 @@ shouldReturnShellAndFlakeTextDefinedBy result expectedOutput =
           result `shouldBe`
               Right [("shell.nix", expShell),("flake.nix", expFlake)]
 
+shouldReturnShellTextDefinedBy result expectedOutput =
+     it "should produce the expected shell.nix" $
+       do expShell <- readNixTemplate (shellFile expectedOutput)
+          either
+	    (const $ expectationFailure "Expected Right but got Left")
+	    (\((fileName, shellNixOutput):_) ->
+                  do shellNixOutput `shouldBe` expShell
+                     fileName `shouldBe` "shell.nix")
+	    result
+
 shouldResultInPackages :: [Text] -> [Text] -> Expectation
 shouldResultInPackages (par:parms) packages =
      options par parms
        `shouldBe`
      Right def{packages=packages}
 
-shouldReturnShellTextOf :: Options -> FilePath -> IO ()
-shouldReturnShellTextOf input expectedOutputFile =
-      readNixTemplate (shellFile expectedOutputFile) >>= shouldBe (generateShellDotNixText input)
-
-shouldReturnFlakeTextOf :: Options -> FilePath -> IO ()
-shouldReturnFlakeTextOf input expectedOutputFile =
-      readNixTemplate (flakeFile expectedOutputFile) >>= shouldBe (fromJust (generateFlakeText db input))
-
 readNixTemplate :: FilePath -> IO Text
 readNixTemplate fileName =
-    stripTrailingNewline <$> readFile ( "test/outputs/" <> fileName)
+    stripTrailingNewline <$> readFile ("test/outputs/" <> fileName)
     where stripTrailingNewline f = bool id stripLastChar (lastCharIsNewline f) f
           lastCharIsNewline = (== '\n') . last
           stripLastChar = reverse . tail . reverse

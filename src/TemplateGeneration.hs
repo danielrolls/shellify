@@ -29,7 +29,7 @@ generateFlakeText db Options{packages=packages, generateFlake=shouldGenerateFlak
           $ newSTMP flakeTemplate)
     shouldGenerateFlake
   where repos = uniq $ getPackageRepo <$> sort packages
-        repoVars = uniq $ getPackageRepoVarName . getPackageRepo <$> sort packages
+        repoVars = getPackageRepoVarName <$> repos
         repoInputs = repoInput <$> repos
         repoInputLine repoName url = repoName <> ".url = \"" <> url <> "\";"
         repoInput repoName = repoInputLine repoName .
