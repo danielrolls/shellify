@@ -53,7 +53,7 @@ options progName args =
                let (OptionsParser newRemaining newRes) = f hd tl
                in worker $ OptionsParser newRemaining ((.) <$> newRes <*> res)
 
-      screenForNoPackages (Right opts) | packages opts == [] = Left noPackagesError
+      screenForNoPackages (Right opts) | null (packages opts) = Left noPackagesError
       screenForNoPackages anyThingElse = anyThingElse
       initialArgumentsToParse = shellArgFilter args
       initialModifier = Right $ if hasShellArg args then setFlakeGeneration else id
