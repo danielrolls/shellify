@@ -9,7 +9,7 @@ helpText progName = "USAGE: " <> progName <> [r| -p [PACKAGES]
 
 Pass nix-shell arguments to nix-shellify to have it generate a shell.nix in
 the current directory. You can then just run nix shell or nix-shell in that
-directory to have those directories in your environment. To run nix commands
+directory to have those packages in your environment. To run nix commands
 you must first install Nix.
 
 Options
