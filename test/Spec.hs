@@ -41,17 +41,17 @@ main =
            Left "--packages not supported with new style commands"
 
        it "should allow a simple command to be specified with a package" $
-         options "nix-shellify" ["-p", "python", "--command", "cowsay"]
+         theOptions "-p python --command cowsay"
            `shouldBe`
          Right def{packages=["python"], command=Just "cowsay"}
 
        it "should allow a simple command to be specified before a package" $
-         options "nix-shellify" ["--run", "cowsay", "-p", "python" ]
+         theOptions "--run cowsay -p python"
            `shouldBe`
          Right def{packages=["python"], command=Just "cowsay"}
 
        it "should allow a simple command to be specified before and after a package" $
-         options "nix-shellify" ["-p", "cowsay", "--command", "cowsay", "-p", "python" ]
+         theOptions "-p cowsay --command cowsay -p python"
            `shouldBe`
          Right def{packages=[ "cowsay", "python" ], command=Just "cowsay"}
 
@@ -94,7 +94,7 @@ main =
          [ "cowsay" ]
 
        it "should support new shell commands" $
-         options "nix-shellify" [ "shell", "nixpkgs#python", "nixpkgs#cowsay" ]
+         theOptions "shell nixpkgs#python nixpkgs#cowsay"
            `shouldBe`
          Right def{packages=[ "nixpkgs#python", "nixpkgs#cowsay" ], generateFlake=True}
 
@@ -134,7 +134,6 @@ shellifyPrintedStringContaining shellifyOutput expectedSubstring =
           (expectedSubstring `isInfixOf`)
           (const False)
 
-
 shellifyWithArgs :: Text -> Either Text [(Text, Text)]
 shellifyWithArgs = parseOptionsAndCalculateExpectedFiles db "nix-shellify" . words
 
@@ -154,6 +153,8 @@ shouldReturnShellTextDefinedBy result expectedOutput =
                   do shellNixOutput `shouldBe` expShell
                      fileName `shouldBe` "shell.nix")
 	    result
+
+theOptions = options "nix-shellify" . words
 
 shouldResultInPackages :: [Text] -> [Text] -> Expectation
 shouldResultInPackages (par:parms) packages =
