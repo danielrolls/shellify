@@ -21,5 +21,5 @@ I want to run something called `foo`. When I run `./foo` it complains I don't ha
 
 Now it complains I didn't have asciidoc so I come out of the shell and edit the last command to add asciideoc by running `nix shell nixpkgs#python nixpkgs#asciidoc`. Now it works.
 
-I exit my shell and change `nix shell nixpkgs#python nixpkgs#asciidoc` to `nix-shellify --with-flakes nixpkgs#python nixpkgs#asciidoc`. It then creates a `flake.nix` and `shell.nix` which I commit in git next to foo. Now I can just type `nix develop` and I have what I need to run foo. I can share and everybody else can run foo too without the same search. I can also go on to tell nix to run as an app or to just make `foo` avaiable handling dependencies for me. 
+I exit my shell and change `nix shell nixpkgs#python nixpkgs#asciidoc` to `nix-shellify shell nixpkgs#python nixpkgs#asciidoc`. I do this by quickly extending `nix` to `nix-shellify` using tab completion. It then creates a `flake.nix` and `shell.nix` which I commit in git next to foo. Now I can just type `nix develop` and I have what I need to run foo. I can share and everybody else can quickly run foo too with the same environment. I can also go on to modify my nix files e.g. to run as an app or run an initialisation command when starting the shell.
 
