@@ -1,8 +1,8 @@
-import Prelude hiding (readFile, last, putStrLn, reverse, tail, words)
+import Prelude hiding (last, putStrLn, readFile, reverse, tail, words)
 import Data.Bool (bool)
-import Data.Text (isInfixOf, Text(), last, reverse, tail, words)
-import Data.Text.IO (readFile, putStrLn)
-import Test.Hspec (describe, expectationFailure, Expectation(), hspec, it, shouldBe, shouldContain, shouldReturn, shouldSatisfy)
+import Data.Text (isInfixOf, last, reverse, tail, Text(), unpack, words)
+import Data.Text.IO (putStrLn, readFile)
+import Test.Hspec (describe, Expectation(), expectationFailure, hspec, it, shouldBe, shouldContain)
 
 import Options
 import Shellify
@@ -18,19 +18,19 @@ main =
      describe "When passing option combinations" $ do
        it "should print a message saying no package is specified when no argument is supplied" $
          shellifyWithArgs ""
-           `shellifyPrintedStringContaining`
+           `shouldReturnSubstring`
          "without any packages specified"
 
        it "should complain if no package is specified" $
          shellifyWithArgs "nipkgs#cowsay"
-           `shellifyPrintedStringContaining`
+           `shouldReturnSubstring`
          "without any packages specified"
 
        it "should show help text when requested" $ do
          shellifyWithArgs "-h"
-             `shellifyPrintedStringContaining` "USAGE:"
+             `shouldReturnSubstring` "USAGE:"
          shellifyWithArgs "--help"
-             `shellifyPrintedStringContaining` "USAGE:"
+             `shouldReturnSubstring` "USAGE:"
 
        it "should not support -p with shell" $ do
          shellifyWithArgs "shell -p cowsay"
@@ -57,39 +57,37 @@ main =
 
        it "Should fail if command has no argument" $ do
          shellifyWithArgs "--command -p python"
-             `shellifyPrintedStringContaining`
-           "Argument missing to switch"
+             `shouldReturnSubstring` "Argument missing to switch"
          shellifyWithArgs "--command"
-             `shellifyPrintedStringContaining`
-           "Argument missing to switch"
+             `shouldReturnSubstring` "Argument missing to switch"
 
        it "should be able to specify one program to install after other arguments" $
-         [ "nix-shellify", "foo", "-p", "python" ]
+         "foo -p python"
            `shouldResultInPackages`
          [ "python" ]
 
-       it "should support multiple packages passes to -p" $
-         [ "nix-shellify", "-p", "python", "cowsay" ]
+       it "should support multiple packages passed to -p" $
+         "-p python cowsay"
            `shouldResultInPackages`
          [ "cowsay", "python" ]
 
        it "should only accept packages up to the next switch" $
-         [ "nix-shellify", "-p", "python", "--arg", "x", "2" ]
+         "-p python --arg x 2"
            `shouldResultInPackages`
          [ "python" ]
 
        it "should support multiple adjacent -p switches" $
-         [ "nix-shellify", "-p", "python", "-p", "cowsay"]
+         "-p python -p cowsay"
            `shouldResultInPackages`
          [ "python", "cowsay" ]
 
        it "should support separated -p switches" $
-         [ "nix-shellify", "-p", "cowsay", "--foo", "-p", "python"]
+         "-p cowsay --foo -p python"
            `shouldResultInPackages`
          [ "cowsay", "python" ]
 
        it "should support long switches" $
-         [ "nix-shellify", "--packages", "cowsay" ]
+         "--packages cowsay"
            `shouldResultInPackages`
          [ "cowsay" ]
 
@@ -113,11 +111,6 @@ main =
          `shouldReturnShellAndFlakeTextDefinedBy`
        "inputs-from-different-registries"
 
-     describe "when a command is specified" $
-         shellifyWithArgs "-p python -p cowsay --command cowsay"
-           `shouldReturnShellTextDefinedBy`
-         "two-build-inputs-and-command"
-
      describe "when working with 2 nixkgs buildInputs" $
          shellifyWithArgs "shell nixpkgs#python nixpkgs#cowsay"
            `shouldReturnShellTextDefinedBy`
@@ -128,11 +121,16 @@ main =
            `shouldReturnShellTextDefinedBy`
          "multiple-repository-sources"
 
-shellifyPrintedStringContaining shellifyOutput expectedSubstring =
-    shouldSatisfy shellifyOutput
-      $ either
-          (expectedSubstring `isInfixOf`)
-          (const False)
+     describe "when a command is specified" $
+         shellifyWithArgs "-p python -p cowsay --command cowsay"
+           `shouldReturnShellTextDefinedBy`
+         "two-build-inputs-and-command"
+
+shouldReturnSubstring shellifyOutput expectedSubstring =
+    either
+      ((`shouldContain` expectedSubstring) . unpack)
+      (const (expectationFailure "expected Left but got Right"))
+      shellifyOutput
 
 shellifyWithArgs :: Text -> Either Text [(Text, Text)]
 shellifyWithArgs = parseOptionsAndCalculateExpectedFiles db "nix-shellify" . words
@@ -156,9 +154,9 @@ shouldReturnShellTextDefinedBy result expectedOutput =
 
 theOptions = options "nix-shellify" . words
 
-shouldResultInPackages :: [Text] -> [Text] -> Expectation
-shouldResultInPackages (par:parms) packages =
-     options par parms
+shouldResultInPackages :: Text -> [Text] -> Expectation
+shouldResultInPackages parameters packages =
+     theOptions parameters
        `shouldBe`
      Right def{packages=packages}
 

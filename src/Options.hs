@@ -29,15 +29,6 @@ data Options = Options {
   , generateFlake :: Bool
 }
 
-instance Default Options where
-  def = Options [] Nothing False
-
-instance Eq Options where
-  a == b =  isEqual command
-         && isEqual (sort . packages)
-         && isEqual generateFlake
-    where isEqual f = f a == f b
-
 data OptionsParser = OptionsParser [Text] -- remainingOptions
                                    (Either Text (Options -> Options)) -- result
 
@@ -103,3 +94,12 @@ hasShellArg (hd:tl) | isSwitch hd = hasShellArg tl
                     | otherwise = False
 
 isSwitch = isPrefixOf "-"
+
+instance Default Options where
+  def = Options [] Nothing False
+
+instance Eq Options where
+  a == b =  isEqual command
+         && isEqual (sort . packages)
+         && isEqual generateFlake
+    where isEqual f = f a == f b
