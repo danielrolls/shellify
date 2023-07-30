@@ -30,11 +30,11 @@ shouldReturnShellTextDefinedBy result expectedOutput =
      it "should produce the expected shell.nix" $
        do expShell <- readNixTemplate (shellFile expectedOutput)
           either
-	    (const $ expectationFailure "Expected Right but got Left")
-	    (\((fileName, shellNixOutput):_) ->
+            (const $ expectationFailure "Expected Right but got Left")
+            (\((fileName, shellNixOutput):_) ->
                   do shellNixOutput `shouldBe` expShell
                      fileName `shouldBe` "shell.nix")
-	    result
+            result
 
 theOptions = options "nix-shellify" . words
 
