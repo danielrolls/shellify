@@ -17,6 +17,8 @@ I exit my shell and change `nix-shell -p python asciidoc` to `nix-shellify -p py
 
 ## Example usage with flakes
 
+![Interactive demo showing how to use shellify with flakes](https://user-images.githubusercontent.com/50051176/258610444-6e848fa4-a675-4aa3-b3b6-d099605bc4b7.gif)
+
 I want to run something called `foo`. When I run `./foo` it complains I don't have python. So I run `nixshell nixpkgs#python` and try running `./foo` again.
 
 Now it complains I didn't have asciidoc so I come out of the shell and edit the last command to add asciideoc by running `nix shell nixpkgs#python nixpkgs#asciidoc`. Now it works.
