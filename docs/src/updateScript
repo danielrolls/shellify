@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+
+set -e
+
+aws_res=`aws --version`
+res=`echo '{"animals": ["dog"]}' | jq -r '.animals[0]'`
+if [ "$res" = "dog" ]; then
+  echo Update succeeded
+fi
