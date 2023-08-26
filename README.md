@@ -11,6 +11,8 @@ This utility assumes [nix is installed](https://nixos.org/download.html).
 
 ## Example usage without flakes
 
+![Interactive demo showing how to use shellify with flakes](docs/legacy-nix-demo.gif)
+
 I want to run a program called `foo`. When I run `./foo` it complains I don't have python. So I run `nix-shell -p python` and try running `./foo` again.
 
 Now it complains I don't have asciidoc so I come out of the shell and edit the last command to add asciidoc by running `nix-shell -p python asciidoc`. Now it works.
