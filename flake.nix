@@ -3,7 +3,7 @@
 
   inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
 
-  outputs = { self, nixpkgs }: 
+  outputs = { self, nixpkgs }:
 
     let pkgs = nixpkgs.legacyPackages.x86_64-linux;
     in {
@@ -20,10 +20,7 @@
         }
       ) {
         enableSeparateDataOutput = false;
-      }).overrideAttrs (old: {
-        installPhase = old.installPhase + ''  
-          ln -s $out/bin/shellify $out/bin/nix-shellify
-        '';
+      }).overrideAttrs(old: {
         buildInputs = old.buildInputs ++ [ pkgs.nix ];
       });
     };
