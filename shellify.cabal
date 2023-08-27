@@ -59,7 +59,7 @@ library
         shake >=0.19.7 && <0.20,
         unordered-containers >=0.2.19.1 && <0.3
 
-executable shellify
+executable nix-shellify
     import: deps
     main-is: Main.hs
     build-depends:    
