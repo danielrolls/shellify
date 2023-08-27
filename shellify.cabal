@@ -1,6 +1,6 @@
 cabal-version:      3.0
 name:               shellify
-version:            0.10.0.3
+version:            0.11.0.0
 
 author: Daniel Rolls
 maintainer: daniel.rolls.27@googlemail.com
