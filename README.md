@@ -17,7 +17,22 @@ I want to run a program called `foo`. When I run `./foo` it complains I don't ha
 
 Now it complains I don't have asciidoc so I come out of the shell and edit the last command to add asciidoc by running `nix-shell -p python asciidoc`. Now it works.
 
-I exit my shell and change `nix-shell -p python asciidoc` to `nix-shellify -p python asciidoc`. It then creates a `shell.nix` which I keep next to foo. Now I can just type `nix-shell` and I have what I need to run foo. I can share and everybody else can run foo too without the same search. They also don't need to run it in a conatainer or VM or to maintain depenencies on their system themself. 
+I exit my shell and change `nix-shell -p python asciidoc` to `nix-shellify -p python asciidoc`. It then creates a `shell.nix` which I keep next to foo. It looks like this:
+
+```nix
+{ pkgs ? import <nixpkgs> {} }:
+
+pkgs.mkShell {
+
+  buildInputs = [
+    pkgs.asciidoc
+    pkgs.python
+  ];
+
+}
+```
+
+Now I can just type `nix-shell` and I have what I need to run foo. I can share and everybody else can run foo too without the same search. They also don't need to run it in a conatainer or VM or to maintain depenencies on their system themself. 
 
 ## Example usage with flakes
 
