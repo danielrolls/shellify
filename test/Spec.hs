@@ -22,6 +22,9 @@ main = hspec $ do
           `shouldReturnSubstring` "USAGE:"
       shellifyWithArgs "--help"
           `shouldReturnSubstring` "USAGE:"
+    it "should show the version number when requested" $ do
+      shellifyWithArgs "--version"
+          `shouldReturnSubstring` "Shellify 0."
 
     it "should not support -p with shell" $ do
       shellifyWithArgs "shell -p cowsay"

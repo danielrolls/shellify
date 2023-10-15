@@ -25,6 +25,9 @@ Options
     flake.nix created in addition to a shell.nix. Highly recommended to ensure
     the versions of dependencies are kept for reproducibility and so that
     shells are cached to load faster.
+
+    --version
+    Show the version number
 |]
 
 noPackagesError = [r|I can't write out a shell file without any packages specified.
