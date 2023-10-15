@@ -14,8 +14,10 @@ import Data.List (find, sort)
 import Data.Maybe (fromMaybe)
 import Data.Text (isInfixOf, isPrefixOf, pack, replace, splitOn, stripPrefix, takeWhile, Text(), unpack)
 import Data.Text.IO (hPutStrLn, writeFile)
+import Data.Version (showVersion)
 import qualified Data.Text.IO as Text
 import GHC.IO.Exception (ExitCode(ExitSuccess, ExitFailure))
+import Paths_shellify (version)
 import System.Directory (doesPathExist)
 import System.Exit (exitWith)
 import System.IO (stderr)
@@ -62,6 +64,7 @@ options progName args =
         baseOption :: Text -> [Text] -> OptionsParser
         baseOption "-h" = returnError $ helpText progName
         baseOption "--help" = returnError $ helpText progName
+        baseOption "--version" = returnError $ "Shellify " <> (pack $ showVersion version)
         baseOption "--command" = handleCommandSwitch
         baseOption "--run" = handleCommandSwitch
         baseOption "--with-flake" = transformOptionsWith setFlakeGeneration
