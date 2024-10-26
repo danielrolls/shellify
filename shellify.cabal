@@ -1,6 +1,6 @@
 cabal-version:      3.0
 name:               shellify
-version:            0.11.0.4
+version:            0.11.0.5
 
 author: Daniel Rolls
 maintainer: daniel.rolls.27@googlemail.com
@@ -52,7 +52,7 @@ library
     hs-source-dirs: src
     build-depends:
         containers >=0.6.5.1 && <0.8,
-        data-default-class >=0.1.2.0 && <0.2,
+        data-default >=0.8 && <0.9,
         directory >=1.3.6.2 && <1.4,
         extra >=1.7.13 && <1.9,
         HStringTemplate >=0.8.8 && <0.9,
