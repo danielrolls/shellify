@@ -1,6 +1,6 @@
 cabal-version:      3.0
 name:               shellify
-version:            0.11.0.3
+version:            0.11.0.4
 
 author: Daniel Rolls
 maintainer: daniel.rolls.27@googlemail.com
@@ -18,7 +18,8 @@ extra-doc-files:
 tested-with:
     GHC == 9.2.4,
     GHC == 9.2.8,
-    GHC == 9.6.2
+    GHC == 9.6.2,
+    GHC == 9.10.1
 
 source-repository head
     type: git
@@ -27,7 +28,7 @@ source-repository head
 common deps
     default-language: GHC2021
     build-depends:
-        base >=4.16 && <4.20,
+        base >=4.16 && <4.21,
         raw-strings-qq >=1.1 && <1.2,
         text >=1.2.5.0 && <2.2
 
