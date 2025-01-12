@@ -1,20 +1,20 @@
 module TemplateGeneration (generateShellDotNixText, generateFlakeText, getRegistryDB) where
 
-import Prelude hiding (lines)
-
 import Constants
 import FlakeTemplate
 import Options
 import ShellifyTemplate
 
+import Data.Bifunctor (bimap)
 import Data.Bool (bool)
-import Data.List (find, sort)
-import Data.List.Extra ((!?))
-import Data.Maybe (catMaybes, fromMaybe)
+import Data.List (find, sort, sortBy)
+import Data.Maybe (fromMaybe)
 import Data.Set (fromList, toList)
-import Data.Text (isInfixOf, isPrefixOf, lines, pack, splitOn, Text())
+import Data.String.Utils (strip)
+import Data.Text (Text(), isInfixOf, isPrefixOf, pack, splitOn, unpack)
 import Development.Shake.Command (cmd, Exit(Exit), Stderr(Stderr), Stdout(Stdout))
 import System.Exit (ExitCode (ExitSuccess))
+import Text.ParserCombinators.Parsec (Parser, char, endBy, eof, many1, noneOf, parse, sepBy, string, (<|>))
 import Text.StringTemplate (newSTMP, render, setAttribute)
 
 generateFlakeText :: Text -> Options -> Maybe Text
@@ -28,13 +28,13 @@ generateFlakeText db Options{packages=packages, generateFlake=shouldGenerateFlak
           $ setAttribute "shell_args" shellArgs
           $ newSTMP flakeTemplate)
     shouldGenerateFlake
-  where repos = uniq $ getPackageRepo <$> sort packages
+  where repos = getPackageRepoWrapper packages
         repoVars = getPackageRepoVarName <$> repos
         repoInputs = repoInput <$> repos
         repoInputLine repoName url = repoName <> ".url = \"" <> url <> "\";"
         repoInput repoName = repoInputLine repoName .
           either
-            (error "Unexpected output from nix registry call: " <>)
+            (error . ("Unexpected output from nix registry call: " <>))
             (fromMaybe "PLEASE ENTER input here")
             . findFlakeRepoUrl db $ repoName
         pkgsVar = (<> "Pkgs")
@@ -52,8 +52,11 @@ generateShellDotNixText Options{packages=packages, command=command} =
           command
   $ newSTMP shellifyTemplate
   where pkgs = generateBuildInput <$> sort packages
-        parameters = uniq $ generateParameters <$> sort packages
+        parameters = generateParametersWrapper packages
         generateBuildInput input = (toImportVar . getPackageRepo) input <> "." <> getPackageName input
+
+getPackageRepoWrapper :: [Package] -> [Text]
+getPackageRepoWrapper = uniq . ("nixpkgs" :) . fmap getPackageRepo . sort
 
 getPackageRepo input | "#" `isInfixOf` input
                         = head $ splitOn "#" input
@@ -73,6 +76,9 @@ toImportVar var | var == "nixpkgs"
 getPackageRepoVarName "nixpkgs" = "pkgs"
 getPackageRepoVarName a = a
 
+generateParametersWrapper :: [Package] -> [Text]
+generateParametersWrapper = uniq . ("pkgs ? import <nixpkgs> {}" :) . fmap generateParameters . sort
+
 generateParameters :: Package -> Text
 generateParameters package | "#" `isInfixOf` package
                            && not ("nixpkgs#" `isPrefixOf` package)
@@ -90,23 +96,46 @@ getRegistryDB =
                       (Right $ pack out)
                       (ex == ExitSuccess)
 
-findFlakeRepoUrl :: Text -> Text -> Either Text (Maybe Text)
+findFlakeRepoUrl :: Text -> Text -> Either String (Maybe Text)
 findFlakeRepoUrl haystack needle =
-       fmap repoUrl . find ((needle ==) . repoName) . catMaybes <$> mapM getFlakeRepo (lines haystack)
+  bimap ((<>) "Error processing nix registry list output: " . show)
+        (fmap repoUrl . find ((needle ==) . repoName)
+                       . sortBy compareRepoEntries)
+        $ parse parseRepos "" . strip . unpack $ haystack
+
+compareRepoEntries repoA repoB
+  | repoHasLocalPinning repoA && not (repoHasLocalPinning repoB) = GT
+  | repoHasLocalPinning repoB && not (repoHasLocalPinning repoA) = LT
+  | otherwise = repoType repoA `compare` repoType repoB
+  where repoHasLocalPinning = isPrefixOf "path:" . repoUrl
+
+data RepoType = User | System | Global
+                deriving (Eq, Ord)
 
 data FlakeRepo = FlakeRepo {
     repoName :: Text
   , repoUrl :: Text
+  , repoType :: RepoType
 }
 
-getFlakeRepo :: Text -> Either Text (Maybe FlakeRepo)
-getFlakeRepo line = let expectedField = maybe (Left "unexepected nix registry command format")
-                                              Right
-                                        . (!?) (splitOn " " line)
-                        urlField = expectedField 2
-                        splitRepoField = splitOn ":" <$> expectedField 1
-                        potentialFlakeName ["flake", b] = Just b
-                        potentialFlakeName _ = Nothing
-                        f x y = (`FlakeRepo` y) <$> potentialFlakeName x
-                     in f <$> splitRepoField <*> urlField
+parseRepos :: Parser [FlakeRepo]
+parseRepos = do res <- parseLines
+                eof
+                return res
+--parseRepos = endBy parseLines eof
+
+parseLines :: Parser [FlakeRepo]
+parseLines = sepBy parseLine (char '\n')
+
+parseLine :: Parser FlakeRepo
+parseLine = do repoType <- parseRepoType
+               char ' '
+               flakeName <- string "flake:" >> parseParam
+               char ' '
+               repoUrl <- parseParam
+               return $ FlakeRepo (pack flakeName) (pack repoUrl) repoType
+  where parseParam = many1 (noneOf " \n")
+        parseRepoType = (string "global" >> return Global)
+                    <|> (string "system" >> return System)
+                    <|> (string "user" >> return User)
 

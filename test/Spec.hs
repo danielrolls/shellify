@@ -6,6 +6,46 @@ import TestHelpers
 
 main = hspec $ do
 
+  describe "where system is local and global is available fall through to global" $
+    whereALocalSystemAndFlakeGlobalNixpkgsExistsShellifyWithArgs "shell nixpkgs#cowsay"
+      `shouldReturnShellAndFlakeTextDefinedBy`
+    "cowsay-from-global-nixpkgs"
+
+  describe "where system is local and no user or global is available, use local" $
+    whereALocalSystemNixpkgsExistsShellifyWithArgs "shell nixpkgs#cowsay"
+      `shouldReturnShellAndFlakeTextDefinedBy`
+    "cowsay-from-local-nixpkgs"
+
+  describe "When the nixpkgs in the registry is configured such that it defines a user registry" $
+    whereOnlyAUserNixpkgsExistsShellifyWithArgs "shell nixpkgs#cowsay"
+      `shouldReturnShellAndFlakeTextDefinedBy`
+    "cowsay-from-user-nixpkgs"
+
+  describe "When the custompkgs in the registry is configured such that it defines a global and system registry" $
+    whereASystemAndGlobalCustomPkgsExistsShellifyWithArgs "shell custompkgs#cowsay"
+      `shouldReturnShellAndFlakeTextDefinedBy`
+    "cowsay-from-system-custompkgs"
+
+  describe "When the custompkgs in the registry is configured such that it defines a system and global registry" $
+    whereAGlobalAndSystemCustomPkgsExistsShellifyWithArgs "shell custompkgs#cowsay"
+      `shouldReturnShellAndFlakeTextDefinedBy`
+    "cowsay-from-system-custompkgs"
+
+  describe "When the nixpkgs in the registry is configured such that it defines a system registry" $
+    whereASystemAndGlobalNixpkgsExistsShellifyWithArgs "shell nixpkgs#cowsay"
+      `shouldReturnShellAndFlakeTextDefinedBy`
+    "cowsay-from-system-nixpkgs"
+
+  describe "When the nixpkgs in the registry is configured such that it defines a system registry with the global registry listed first" $
+    whereAGlobalAndSystemNixpkgsExistsShellifyWithArgs "shell nixpkgs#cowsay"
+      `shouldReturnShellAndFlakeTextDefinedBy`
+    "cowsay-from-system-nixpkgs"
+
+  describe "When the nixpkgs in the registry is configured such that it defines only a global registry" $
+    whereOnlyAGlobalNixpkgsExistsShellifyWithArgs "shell nixpkgs#cowsay"
+      `shouldReturnShellAndFlakeTextDefinedBy`
+    "cowsay-from-global-nixpkgs"
+
   describe "When passing option combinations" $ do
     it "should print a message saying no package is specified when no argument is supplied" $
       shellifyWithArgs ""
@@ -89,6 +129,11 @@ main = hspec $ do
       theOptions "shell nixpkgs#python nixpkgs#cowsay"
         `shouldBe`
       Right def{packages=[ "nixpkgs#python", "nixpkgs#cowsay" ], generateFlake=True}
+
+  describe "when one buildInputs is required from an unknown source" $
+    shellifyWithArgs "--with-flake shell foo#cowsay"
+      `shouldReturnShellAndFlakeTextDefinedBy`
+    "inputs-from-unknown-source"
 
   describe "when two buildInputs are required from two sources" $
     shellifyWithArgs "--with-flake shell foo#cowsay nixpkgs#python"
