@@ -11,5 +11,5 @@ jobs:
       with:
         nix_path: nixpkgs=channel:nixos-unstable
     - run: nix develop
-    - run: cabal v2-update
-    - run: cabal v2-test
+    - run: nix develop --command cabal v2-update
+    - run: nix develop --command cabal v2-test --enable-tests
