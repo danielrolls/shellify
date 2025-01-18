@@ -7,18 +7,17 @@ import ShellifyTemplate
 
 import Data.Bifunctor (bimap)
 import Data.Bool (bool)
-import Data.List (find, sort, sortBy)
+import Data.List (find, sort, sortBy, sortOn)
 import Data.Maybe (fromMaybe)
 import Data.Set (fromList, toList)
-import Data.String.Utils (strip)
 import Data.Text (Text(), isInfixOf, isPrefixOf, pack, splitOn, unpack)
 import Development.Shake.Command (cmd, Exit(Exit), Stderr(Stderr), Stdout(Stdout))
 import System.Exit (ExitCode (ExitSuccess))
-import Text.ParserCombinators.Parsec (Parser, char, endBy, eof, many1, noneOf, parse, sepBy, string, (<|>))
+import Text.ParserCombinators.Parsec (Parser, char, endBy, eof, many1, noneOf, parse, string, (<|>))
 import Text.StringTemplate (newSTMP, render, setAttribute)
 
 generateFlakeText :: Text -> Options -> Maybe Text
-generateFlakeText db Options{packages=packages, generateFlake=shouldGenerateFlake} =
+generateFlakeText db Options{packages=packages, generateFlake=shouldGenerateFlake, prioritiseLocalPinnedSystem=prioritiseLocalPinnedSystem} =
   bool
     Nothing
     (Just $ render
@@ -36,7 +35,7 @@ generateFlakeText db Options{packages=packages, generateFlake=shouldGenerateFlak
           either
             (error . ("Unexpected output from nix registry call: " <>))
             (fromMaybe "PLEASE ENTER input here")
-            . findFlakeRepoUrl db $ repoName
+            . findFlakeRepoUrl prioritiseLocalPinnedSystem db $ repoName
         pkgsVar = (<> "Pkgs")
         pkgsVars = pkgsVar <$> repos
         pkgsDecls = (\repo -> pkgsDecl (pkgsVar repo) repo) <$> repos
@@ -96,12 +95,12 @@ getRegistryDB =
                       (Right $ pack out)
                       (ex == ExitSuccess)
 
-findFlakeRepoUrl :: Text -> Text -> Either String (Maybe Text)
-findFlakeRepoUrl haystack needle =
+findFlakeRepoUrl :: Bool -> Text -> Text -> Either String (Maybe Text)
+findFlakeRepoUrl prioritiseLocalPinnedSystem haystack needle =
   bimap ((<>) "Error processing nix registry list output: " . show)
         (fmap repoUrl . find ((needle ==) . repoName)
-                       . sortBy compareRepoEntries)
-        $ parse parseRepos "" . strip . unpack $ haystack
+                       . (if prioritiseLocalPinnedSystem then sortOn repoType else sortBy compareRepoEntries))
+        $ parse parseRepos "" . unpack $ haystack
 
 compareRepoEntries repoA repoB
   | repoHasLocalPinning repoA && not (repoHasLocalPinning repoB) = GT
@@ -119,22 +118,16 @@ data FlakeRepo = FlakeRepo {
 }
 
 parseRepos :: Parser [FlakeRepo]
-parseRepos = do res <- parseLines
+parseRepos = do res <- endBy parseLine (char '\n')
                 eof
                 return res
---parseRepos = endBy parseLines eof
-
-parseLines :: Parser [FlakeRepo]
-parseLines = sepBy parseLine (char '\n')
-
-parseLine :: Parser FlakeRepo
-parseLine = do repoType <- parseRepoType
-               char ' '
-               flakeName <- string "flake:" >> parseParam
-               char ' '
-               repoUrl <- parseParam
-               return $ FlakeRepo (pack flakeName) (pack repoUrl) repoType
-  where parseParam = many1 (noneOf " \n")
+  where parseLine = do repoType <- parseRepoType
+                       char ' '
+                       flakeName <- string "flake:" >> parseParam
+                       char ' '
+                       repoUrl <- parseParam
+                       return $ FlakeRepo (pack flakeName) (pack repoUrl) repoType
+        parseParam = many1 (noneOf " \n")
         parseRepoType = (string "global" >> return Global)
                     <|> (string "system" >> return System)
                     <|> (string "user" >> return User)

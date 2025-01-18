@@ -29,6 +29,7 @@ data Options = Options {
     packages :: Packages
   , command :: Maybe Text
   , generateFlake :: Bool
+  , prioritiseLocalPinnedSystem :: Bool
 }
 
 data OptionsParser = OptionsParser [Text] -- remainingOptions
@@ -59,6 +60,7 @@ options progName args =
         oldStyleOption opt = baseOption opt
         newStyleOption "-p" = returnError "-p not supported with new style commands"
         newStyleOption "--packages" = returnError "--packages not supported with new style commands"
+        newStyleOption "--allow-local-pinned-registries-to-be-prioritized" = transformOptionsWith setPrioritiseLocalPinnedSystem
         newStyleOption arg | isSwitch arg = baseOption arg
                            | otherwise = transformOptionsWith $ appendPackages [arg]
         baseOption :: Text -> [Text] -> OptionsParser
@@ -82,6 +84,7 @@ options progName args =
         appendPackages ps opts = opts{packages=ps ++ packages opts}
         setCommand cmd opts = opts{command=Just cmd}
         setFlakeGeneration opts = opts{generateFlake=True}
+        setPrioritiseLocalPinnedSystem opts = opts {prioritiseLocalPinnedSystem=True}
         returnError errorText remaining = OptionsParser remaining $ Left errorText
 
 consumePackageArgs :: [Text] -> (Packages, [Text])
@@ -99,7 +102,7 @@ hasShellArg (hd:tl) | isSwitch hd = hasShellArg tl
 isSwitch = isPrefixOf "-"
 
 instance Default Options where
-  def = Options [] Nothing False
+  def = Options [] Nothing False False
 
 instance Eq Options where
   a == b =  isEqual command

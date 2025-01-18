@@ -1,11 +1,10 @@
 module TestHelpers where
 
-import Prelude hiding (last, putStrLn, readFile, reverse, tail, words)
+import Prelude hiding (last, putStrLn, readFile, reverse, tail, unlines, words)
 import Data.Bool (bool)
-import Data.Text (isInfixOf, last, reverse, tail, Text(), unpack, words)
+import Data.Text (isInfixOf, last, reverse, tail, Text(), unpack, unlines, words)
 import Data.Text.IO (putStrLn, readFile)
 import Test.Hspec (Expectation(), expectationFailure, it, shouldBe, shouldContain)
-
 import Options
 import Shellify
 import TemplateGeneration
@@ -17,50 +16,107 @@ shouldReturnSubstring shellifyOutput expectedSubstring =
       shellifyOutput
 
 shellifyWithArgs :: Text -> Either Text [(Text, Text)]
-shellifyWithArgs = parseOptionsAndCalculateExpectedFiles db "nix-shellify" . words
+shellifyWithArgs = shellifyWithArgsWithDb realDbExample
 
-shellifyWithArgsWithDb :: Text -> Text -> Either Text [(Text, Text)]
-shellifyWithArgsWithDb customDb = parseOptionsAndCalculateExpectedFiles customDb "nix-shellify" . words
+realDbExample =
+  [ "global flake:agda github:agda/agda"
+  , "global flake:arion github:hercules-ci/arion"
+  , "global flake:blender-bin github:edolstra/nix-warez?dir=blender"
+  , "global flake:composable github:ComposableFi/composable"
+  , "global flake:dreampkgs github:nix-community/dreampkgs"
+  , "global flake:dwarffs github:edolstra/dwarffs"
+  , "global flake:emacs-overlay github:nix-community/emacs-overlay"
+  , "global flake:fenix github:nix-community/fenix"
+  , "global flake:flake-parts github:hercules-ci/flake-parts"
+  , "global flake:flake-utils github:numtide/flake-utils"
+  , "global flake:gemini github:nix-community/flake-gemini"
+  , "global flake:hercules-ci-effects github:hercules-ci/hercules-ci-effects"
+  , "global flake:hercules-ci-agent github:hercules-ci/hercules-ci-agent"
+  , "global flake:home-manager github:nix-community/home-manager"
+  , "global flake:hydra github:NixOS/hydra"
+  , "global flake:mach-nix github:DavHau/mach-nix"
+  , "global flake:nimble github:nix-community/flake-nimble"
+  , "global flake:nix github:NixOS/nix"
+  , "global flake:nix-darwin github:LnL7/nix-darwin"
+  , "global flake:nixops github:NixOS/nixops"
+  , "global flake:nixos-hardware github:NixOS/nixos-hardware"
+  , "global flake:nixos-homepage github:NixOS/nixos-homepage"
+  , "global flake:nixos-search github:NixOS/nixos-search"
+  , "global flake:nur github:nix-community/NUR"
+  , "global flake:nixpkgs github:NixOS/nixpkgs/nixpkgs-unstable"
+  , "global flake:templates github:NixOS/templates"
+  , "global flake:patchelf github:NixOS/patchelf"
+  , "global flake:poetry2nix github:nix-community/poetry2nix"
+  , "global flake:nix-serve github:edolstra/nix-serve"
+  , "global flake:nickel github:tweag/nickel"
+  , "global flake:bundlers github:NixOS/bundlers"
+  , "global flake:pridefetch github:SpyHoodle/pridefetch"
+  , "global flake:systems github:nix-systems/default"
+  , "global flake:helix github:helix-editor/helix"
+  , "global flake:sops-nix github:Mic92/sops-nix"
+  ]
 
-whereOnlyAUserNixpkgsExistsShellifyWithArgs :: Text -> Either Text [(Text, Text)]
-whereOnlyAUserNixpkgsExistsShellifyWithArgs = shellifyWithArgsWithDb dbWithGlobalToUserNixpkgs
+shellifyWithArgsWithDb :: [Text] -> Text -> Either Text [(Text, Text)]
+shellifyWithArgsWithDb customDb = parseOptionsAndCalculateExpectedFiles (unlines customDb) "nix-shellify" . words
+
+whereAUserNixpkgsExistsShellifyWithArgs :: Text -> Either Text [(Text, Text)]
+whereAUserNixpkgsExistsShellifyWithArgs = shellifyWithArgsWithDb
+  [ "global flake:nixpkgs github:NixOS/nixpkgs/nixpkgs-global-registry"
+  , "system flake:nixpkgs github:NixOS/nixpkgs/nixpkgs-system-registry"
+  , "user flake:nixpkgs github:NixOS/nixpkgs/nixpkgs-user-registry"
+  ]
 
 whereASystemAndGlobalCustomPkgsExistsShellifyWithArgs :: Text -> Either Text [(Text, Text)]
-whereASystemAndGlobalCustomPkgsExistsShellifyWithArgs = shellifyWithArgsWithDb dbWithGlobalToSystemCustomPkgs
+whereASystemAndGlobalCustomPkgsExistsShellifyWithArgs = shellifyWithArgsWithDb
+  [ "global flake:custompkgs github:NixOS/custompkgs/custompkgs-global-registry"
+  , "system flake:custompkgs github:NixOS/custompkgs/custompkgs-system-registry"
+  , "global flake:nixpkgs github:NixOS/nixpkgs/nixpkgs-unstable"
+  ]
 
 whereAGlobalAndSystemCustomPkgsExistsShellifyWithArgs :: Text -> Either Text [(Text, Text)]
-whereAGlobalAndSystemCustomPkgsExistsShellifyWithArgs = shellifyWithArgsWithDb dbWithSystemToGlobalCustomPkgs
+whereAGlobalAndSystemCustomPkgsExistsShellifyWithArgs = shellifyWithArgsWithDb
+  [ "system flake:custompkgs github:NixOS/custompkgs/custompkgs-system-registry"
+  , "global flake:custompkgs github:NixOS/custompkgs/custompkgs-global-registry"
+  , "global flake:nixpkgs github:NixOS/nixpkgs/nixpkgs-unstable"
+  ]
 
 whereASystemAndGlobalNixpkgsExistsShellifyWithArgs :: Text -> Either Text [(Text, Text)]
-whereASystemAndGlobalNixpkgsExistsShellifyWithArgs = shellifyWithArgsWithDb dbWithSystemAndGlobalNixpkgs
+whereASystemAndGlobalNixpkgsExistsShellifyWithArgs = shellifyWithArgsWithDb
+  [ "system flake:nixpkgs github:NixOS/nixpkgs/nixpkgs-system-registry"
+  , "global flake:nixpkgs github:NixOS/nixpkgs/nixpkgs-global-registry"
+  ]
 
 whereAGlobalAndSystemNixpkgsExistsShellifyWithArgs :: Text -> Either Text [(Text, Text)]
-whereAGlobalAndSystemNixpkgsExistsShellifyWithArgs = shellifyWithArgsWithDb dbWithGlobalToSystemNixpkgs
-
-whereOnlyASystemAndGlobalNixpkgsExistsShellifyWithArgs :: Text -> Either Text [(Text, Text)]
-whereOnlyASystemAndGlobalNixpkgsExistsShellifyWithArgs = error "TODO"
-
-whereAUserSystemAndGlobalNixpkgsExistsShellifyWithArgs :: Text -> Either Text [(Text, Text)]
-whereAUserSystemAndGlobalNixpkgsExistsShellifyWithArgs = error "TODO"
+whereAGlobalAndSystemNixpkgsExistsShellifyWithArgs = shellifyWithArgsWithDb
+  [ "global flake:nixpkgs github:NixOS/nixpkgs/nixpkgs-global-registry"
+  , "system flake:nixpkgs github:NixOS/nixpkgs/nixpkgs-system-registry"
+  ]
 
 whereOnlyAGlobalNixpkgsExistsShellifyWithArgs :: Text -> Either Text [(Text, Text)]
-whereOnlyAGlobalNixpkgsExistsShellifyWithArgs = shellifyWithArgsWithDb dbWithOnlyGlobalNixpkgs
+whereOnlyAGlobalNixpkgsExistsShellifyWithArgs = shellifyWithArgsWithDb
+  [ "global flake:nixpkgs github:NixOS/nixpkgs/nixpkgs-global-registry"
+  ]
 
 whereALocalSystemAndFlakeGlobalNixpkgsExistsShellifyWithArgs :: Text -> Either Text [(Text, Text)]
-whereALocalSystemAndFlakeGlobalNixpkgsExistsShellifyWithArgs = shellifyWithArgsWithDb dbWithLocalSystemToGlobalNixpkgs
+whereALocalSystemAndFlakeGlobalNixpkgsExistsShellifyWithArgs = shellifyWithArgsWithDb
+  [ "system flake:nixpkgs path:/local/nixpkgs/path"
+  , "global flake:nixpkgs github:NixOS/nixpkgs/nixpkgs-global-registry"
+  ]
 
 whereALocalSystemNixpkgsExistsShellifyWithArgs :: Text -> Either Text [(Text, Text)]
-whereALocalSystemNixpkgsExistsShellifyWithArgs = shellifyWithArgsWithDb dbWithLocalSystemNixpkgs
+whereALocalSystemNixpkgsExistsShellifyWithArgs = shellifyWithArgsWithDb
+  [ "system flake:nixpkgs path:/local/nixpkgs/path"
+  , "global flake:templates github:NixOS/templates"
+  ]
 
+shouldReturnShellAndFlakeTextDefinedBy :: Either Text [(Text, Text)] -> FilePath -> Expectation
 shouldReturnShellAndFlakeTextDefinedBy result expectedOutput =
-     it "should produce the expected shell.nix and flake.nix" $
-       do expShell <- readNixTemplate (shellFile expectedOutput)
-          expFlake <- readNixTemplate (flakeFile expectedOutput)
-          result `shouldBe`
-              Right [("shell.nix", expShell),("flake.nix", expFlake)]
+   do expShell <- readNixTemplate (shellFile expectedOutput)
+      expFlake <- readNixTemplate (flakeFile expectedOutput)
+      result `shouldBe`
+          Right [("shell.nix", expShell),("flake.nix", expFlake)]
 
 shouldReturnShellTextDefinedBy result expectedOutput =
-     it "should produce the expected shell.nix" $
        do expShell <- readNixTemplate (shellFile expectedOutput)
           either
             (const $ expectationFailure "Expected Right but got Left")
@@ -69,13 +125,13 @@ shouldReturnShellTextDefinedBy result expectedOutput =
                      fileName `shouldBe` "shell.nix")
             result
 
-theOptions = options "nix-shellify" . words
-
 shouldResultInPackages :: Text -> [Text] -> Expectation
 shouldResultInPackages parameters packages =
      theOptions parameters
        `shouldBe`
      Right def{packages=packages}
+
+theOptions = options "nix-shellify" . words
 
 instance Show Options
 
@@ -89,26 +145,3 @@ readNixTemplate fileName =
 flakeFile = (<> "-flake.nix")
 shellFile = (<> "-shell.nix")
 
-db = "global flake:agda github:agda/agda\nglobal flake:arion github:hercules-ci/arion\nglobal flake:blender-bin github:edolstra/nix-warez?dir=blender\nglobal flake:composable github:ComposableFi/composable\nglobal flake:dreampkgs github:nix-community/dreampkgs\nglobal flake:dwarffs github:edolstra/dwarffs\nglobal flake:emacs-overlay github:nix-community/emacs-overlay\nglobal flake:fenix github:nix-community/fenix\nglobal flake:flake-parts github:hercules-ci/flake-parts\nglobal flake:flake-utils github:numtide/flake-utils\nglobal flake:gemini github:nix-community/flake-gemini\nglobal flake:hercules-ci-effects github:hercules-ci/hercules-ci-effects\nglobal flake:hercules-ci-agent github:hercules-ci/hercules-ci-agent\nglobal flake:home-manager github:nix-community/home-manager\nglobal flake:hydra github:NixOS/hydra\nglobal flake:mach-nix github:DavHau/mach-nix\nglobal flake:nimble github:nix-community/flake-nimble\nglobal flake:nix github:NixOS/nix\nglobal flake:nix-darwin github:LnL7/nix-darwin\nglobal flake:nixops github:NixOS/nixops\nglobal flake:nixos-hardware github:NixOS/nixos-hardware\nglobal flake:nixos-homepage github:NixOS/nixos-homepage\nglobal flake:nixos-search github:NixOS/nixos-search\nglobal flake:nur github:nix-community/NUR\nglobal flake:nixpkgs github:NixOS/nixpkgs/nixpkgs-unstable\nglobal flake:templates github:NixOS/templates\nglobal flake:patchelf github:NixOS/patchelf\nglobal flake:poetry2nix github:nix-community/poetry2nix\nglobal flake:nix-serve github:edolstra/nix-serve\nglobal flake:nickel github:tweag/nickel\nglobal flake:bundlers github:NixOS/bundlers\nglobal flake:pridefetch github:SpyHoodle/pridefetch\nglobal flake:systems github:nix-systems/default\nglobal flake:helix github:helix-editor/helix\nglobal flake:sops-nix github:Mic92/sops-nix\n" :: Text
-
-dbWithUserNixpkgs = "global flake:agda github:agda/agda\nglobal flake:arion github:hercules-ci/arion\nglobal flake:blender-bin github:edolstra/nix-warez?dir=blender\nglobal flake:composable github:ComposableFi/composable\nglobal flake:dreampkgs github:nix-community/dreampkgs\nglobal flake:dwarffs github:edolstra/dwarffs\nglobal flake:emacs-overlay github:nix-community/emacs-overlay\nglobal flake:fenix github:nix-community/fenix\nglobal flake:flake-parts github:hercules-ci/flake-parts\nglobal flake:flake-utils github:numtide/flake-utils\nglobal flake:gemini github:nix-community/flake-gemini\nglobal flake:hercules-ci-effects github:hercules-ci/hercules-ci-effects\nglobal flake:hercules-ci-agent github:hercules-ci/hercules-ci-agent\nglobal flake:home-manager github:nix-community/home-manager\nglobal flake:hydra github:NixOS/hydra\nglobal flake:mach-nix github:DavHau/mach-nix\nglobal flake:nimble github:nix-community/flake-nimble\nglobal flake:nix github:NixOS/nix\nglobal flake:nix-darwin github:LnL7/nix-darwin\nglobal flake:nixops github:NixOS/nixops\nglobal flake:nixos-hardware github:NixOS/nixos-hardware\nglobal flake:nixos-homepage github:NixOS/nixos-homepage\nglobal flake:nixos-search github:NixOS/nixos-search\nglobal flake:nur github:nix-community/NUR\nglobal flake:nixpkgs github:NixOS/nixpkgs/nixpkgs-global-registry\nuser flake:nixpkgs github:NixOS/nixpkgs/nixpkgs-user-registry\nglobal flake:templates github:NixOS/templates\nglobal flake:patchelf github:NixOS/patchelf\nglobal flake:poetry2nix github:nix-community/poetry2nix\nglobal flake:nix-serve github:edolstra/nix-serve\nglobal flake:nickel github:tweag/nickel\nglobal flake:bundlers github:NixOS/bundlers\nglobal flake:pridefetch github:SpyHoodle/pridefetch\nglobal flake:systems github:nix-systems/default\nglobal flake:helix github:helix-editor/helix\nglobal flake:sops-nix github:Mic92/sops-nix\n" :: Text
-
-dbWithSystemNixpkgs = "global flake:agda github:agda/agda\nglobal flake:arion github:hercules-ci/arion\nglobal flake:blender-bin github:edolstra/nix-warez?dir=blender\nglobal flake:composable github:ComposableFi/composable\nglobal flake:dreampkgs github:nix-community/dreampkgs\nglobal flake:dwarffs github:edolstra/dwarffs\nglobal flake:emacs-overlay github:nix-community/emacs-overlay\nglobal flake:fenix github:nix-community/fenix\nglobal flake:flake-parts github:hercules-ci/flake-parts\nglobal flake:flake-utils github:numtide/flake-utils\nglobal flake:gemini github:nix-community/flake-gemini\nglobal flake:hercules-ci-effects github:hercules-ci/hercules-ci-effects\nglobal flake:hercules-ci-agent github:hercules-ci/hercules-ci-agent\nglobal flake:home-manager github:nix-community/home-manager\nglobal flake:hydra github:NixOS/hydra\nglobal flake:mach-nix github:DavHau/mach-nix\nglobal flake:nimble github:nix-community/flake-nimble\nglobal flake:nix github:NixOS/nix\nglobal flake:nix-darwin github:LnL7/nix-darwin\nglobal flake:nixops github:NixOS/nixops\nglobal flake:nixos-hardware github:NixOS/nixos-hardware\nglobal flake:nixos-homepage github:NixOS/nixos-homepage\nglobal flake:nixos-search github:NixOS/nixos-search\nglobal flake:nur github:nix-community/NUR\nglobal flake:nixpkgs github:NixOS/nixpkgs/nixpkgs-global-registry\nsystem flake:nixpkgs github:NixOS/nixpkgs/nixpkgs-system-registry\nglobal flake:templates github:NixOS/templates\nglobal flake:patchelf github:NixOS/patchelf\nglobal flake:poetry2nix github:nix-community/poetry2nix\nglobal flake:nix-serve github:edolstra/nix-serve\nglobal flake:nickel github:tweag/nickel\nglobal flake:bundlers github:NixOS/bundlers\nglobal flake:pridefetch github:SpyHoodle/pridefetch\nglobal flake:systems github:nix-systems/default\nglobal flake:helix github:helix-editor/helix\nglobal flake:sops-nix github:Mic92/sops-nix\n" :: Text
-
-dbWithUserToGlobalNixpkgs = "global flake:agda github:agda/agda\nglobal flake:arion github:hercules-ci/arion\nglobal flake:blender-bin github:edolstra/nix-warez?dir=blender\nglobal flake:composable github:ComposableFi/composable\nglobal flake:dreampkgs github:nix-community/dreampkgs\nglobal flake:dwarffs github:edolstra/dwarffs\nglobal flake:emacs-overlay github:nix-community/emacs-overlay\nglobal flake:fenix github:nix-community/fenix\nglobal flake:flake-parts github:hercules-ci/flake-parts\nglobal flake:flake-utils github:numtide/flake-utils\nglobal flake:gemini github:nix-community/flake-gemini\nglobal flake:hercules-ci-effects github:hercules-ci/hercules-ci-effects\nglobal flake:hercules-ci-agent github:hercules-ci/hercules-ci-agent\nglobal flake:home-manager github:nix-community/home-manager\nglobal flake:hydra github:NixOS/hydra\nglobal flake:mach-nix github:DavHau/mach-nix\nglobal flake:nimble github:nix-community/flake-nimble\nglobal flake:nix github:NixOS/nix\nglobal flake:nix-darwin github:LnL7/nix-darwin\nglobal flake:nixops github:NixOS/nixops\nglobal flake:nixos-hardware github:NixOS/nixos-hardware\nglobal flake:nixos-homepage github:NixOS/nixos-homepage\nglobal flake:nixos-search github:NixOS/nixos-search\nglobal flake:nur github:nix-community/NUR\nuser flake:nixpkgs github:NixOS/nixpkgs/nixpkgs-user-registry\nsystem flake:nixpkgs github:NixOS/nixpkgs/nixpkgs-system-registry\nglobal flake:nixpkgs github:NixOS/nixpkgs/nixpkgs-global-registry\nglobal flake:templates github:NixOS/templates\nglobal flake:patchelf github:NixOS/patchelf\nglobal flake:poetry2nix github:nix-community/poetry2nix\nglobal flake:nix-serve github:edolstra/nix-serve\nglobal flake:nickel github:tweag/nickel\nglobal flake:bundlers github:NixOS/bundlers\nglobal flake:pridefetch github:SpyHoodle/pridefetch\nglobal flake:systems github:nix-systems/default\nglobal flake:helix github:helix-editor/helix\nglobal flake:sops-nix github:Mic92/sops-nix\n" :: Text
-
-dbWithLocalSystemToGlobalNixpkgs = "global flake:agda github:agda/agda\nglobal flake:arion github:hercules-ci/arion\nglobal flake:blender-bin github:edolstra/nix-warez?dir=blender\nglobal flake:composable github:ComposableFi/composable\nglobal flake:dreampkgs github:nix-community/dreampkgs\nglobal flake:dwarffs github:edolstra/dwarffs\nglobal flake:emacs-overlay github:nix-community/emacs-overlay\nglobal flake:fenix github:nix-community/fenix\nglobal flake:flake-parts github:hercules-ci/flake-parts\nglobal flake:flake-utils github:numtide/flake-utils\nglobal flake:gemini github:nix-community/flake-gemini\nglobal flake:hercules-ci-effects github:hercules-ci/hercules-ci-effects\nglobal flake:hercules-ci-agent github:hercules-ci/hercules-ci-agent\nglobal flake:home-manager github:nix-community/home-manager\nglobal flake:hydra github:NixOS/hydra\nglobal flake:mach-nix github:DavHau/mach-nix\nglobal flake:nimble github:nix-community/flake-nimble\nglobal flake:nix github:NixOS/nix\nglobal flake:nix-darwin github:LnL7/nix-darwin\nglobal flake:nixops github:NixOS/nixops\nglobal flake:nixos-hardware github:NixOS/nixos-hardware\nglobal flake:nixos-homepage github:NixOS/nixos-homepage\nglobal flake:nixos-search github:NixOS/nixos-search\nglobal flake:nur github:nix-community/NUR\nsystem flake:nixpkgs path:/local/nixpkgs/path\nglobal flake:nixpkgs github:NixOS/nixpkgs/nixpkgs-global-registry\nglobal flake:templates github:NixOS/templates\nglobal flake:patchelf github:NixOS/patchelf\nglobal flake:poetry2nix github:nix-community/poetry2nix\nglobal flake:nix-serve github:edolstra/nix-serve\nglobal flake:nickel github:tweag/nickel\nglobal flake:bundlers github:NixOS/bundlers\nglobal flake:pridefetch github:SpyHoodle/pridefetch\nglobal flake:systems github:nix-systems/default\nglobal flake:helix github:helix-editor/helix\nglobal flake:sops-nix github:Mic92/sops-nix\n" :: Text
-
-dbWithLocalSystemNixpkgs = "global flake:agda github:agda/agda\nglobal flake:arion github:hercules-ci/arion\nglobal flake:blender-bin github:edolstra/nix-warez?dir=blender\nglobal flake:composable github:ComposableFi/composable\nglobal flake:dreampkgs github:nix-community/dreampkgs\nglobal flake:dwarffs github:edolstra/dwarffs\nglobal flake:emacs-overlay github:nix-community/emacs-overlay\nglobal flake:fenix github:nix-community/fenix\nglobal flake:flake-parts github:hercules-ci/flake-parts\nglobal flake:flake-utils github:numtide/flake-utils\nglobal flake:gemini github:nix-community/flake-gemini\nglobal flake:hercules-ci-effects github:hercules-ci/hercules-ci-effects\nglobal flake:hercules-ci-agent github:hercules-ci/hercules-ci-agent\nglobal flake:home-manager github:nix-community/home-manager\nglobal flake:hydra github:NixOS/hydra\nglobal flake:mach-nix github:DavHau/mach-nix\nglobal flake:nimble github:nix-community/flake-nimble\nglobal flake:nix github:NixOS/nix\nglobal flake:nix-darwin github:LnL7/nix-darwin\nglobal flake:nixops github:NixOS/nixops\nglobal flake:nixos-hardware github:NixOS/nixos-hardware\nglobal flake:nixos-homepage github:NixOS/nixos-homepage\nglobal flake:nixos-search github:NixOS/nixos-search\nglobal flake:nur github:nix-community/NUR\nsystem flake:nixpkgs path:/local/nixpkgs/path\nglobal flake:templates github:NixOS/templates\nglobal flake:patchelf github:NixOS/patchelf\nglobal flake:poetry2nix github:nix-community/poetry2nix\nglobal flake:nix-serve github:edolstra/nix-serve\nglobal flake:nickel github:tweag/nickel\nglobal flake:bundlers github:NixOS/bundlers\nglobal flake:pridefetch github:SpyHoodle/pridefetch\nglobal flake:systems github:nix-systems/default\nglobal flake:helix github:helix-editor/helix\nglobal flake:sops-nix github:Mic92/sops-nix\n" :: Text
-
-dbWithGlobalToUserNixpkgs = "global flake:agda github:agda/agda\nglobal flake:arion github:hercules-ci/arion\nglobal flake:blender-bin github:edolstra/nix-warez?dir=blender\nglobal flake:composable github:ComposableFi/composable\nglobal flake:dreampkgs github:nix-community/dreampkgs\nglobal flake:dwarffs github:edolstra/dwarffs\nglobal flake:emacs-overlay github:nix-community/emacs-overlay\nglobal flake:fenix github:nix-community/fenix\nglobal flake:flake-parts github:hercules-ci/flake-parts\nglobal flake:flake-utils github:numtide/flake-utils\nglobal flake:gemini github:nix-community/flake-gemini\nglobal flake:hercules-ci-effects github:hercules-ci/hercules-ci-effects\nglobal flake:hercules-ci-agent github:hercules-ci/hercules-ci-agent\nglobal flake:home-manager github:nix-community/home-manager\nglobal flake:hydra github:NixOS/hydra\nglobal flake:mach-nix github:DavHau/mach-nix\nglobal flake:nimble github:nix-community/flake-nimble\nglobal flake:nix github:NixOS/nix\nglobal flake:nix-darwin github:LnL7/nix-darwin\nglobal flake:nixops github:NixOS/nixops\nglobal flake:nixos-hardware github:NixOS/nixos-hardware\nglobal flake:nixos-homepage github:NixOS/nixos-homepage\nglobal flake:nixos-search github:NixOS/nixos-search\nglobal flake:nur github:nix-community/NUR\nglobal flake:nixpkgs github:NixOS/nixpkgs/nixpkgs-global-registry\nsystem flake:nixpkgs github:NixOS/nixpkgs/nixpkgs-system-registry\nuser flake:nixpkgs github:NixOS/nixpkgs/nixpkgs-user-registry\nglobal flake:templates github:NixOS/templates\nglobal flake:patchelf github:NixOS/patchelf\nglobal flake:poetry2nix github:nix-community/poetry2nix\nglobal flake:nix-serve github:edolstra/nix-serve\nglobal flake:nickel github:tweag/nickel\nglobal flake:bundlers github:NixOS/bundlers\nglobal flake:pridefetch github:SpyHoodle/pridefetch\nglobal flake:systems github:nix-systems/default\nglobal flake:helix github:helix-editor/helix\nglobal flake:sops-nix github:Mic92/sops-nix\n" :: Text
-
-dbWithSystemAndGlobalNixpkgs = "global flake:agda github:agda/agda\nglobal flake:arion github:hercules-ci/arion\nglobal flake:blender-bin github:edolstra/nix-warez?dir=blender\nglobal flake:composable github:ComposableFi/composable\nglobal flake:dreampkgs github:nix-community/dreampkgs\nglobal flake:dwarffs github:edolstra/dwarffs\nglobal flake:emacs-overlay github:nix-community/emacs-overlay\nglobal flake:fenix github:nix-community/fenix\nglobal flake:flake-parts github:hercules-ci/flake-parts\nglobal flake:flake-utils github:numtide/flake-utils\nglobal flake:gemini github:nix-community/flake-gemini\nglobal flake:hercules-ci-effects github:hercules-ci/hercules-ci-effects\nglobal flake:hercules-ci-agent github:hercules-ci/hercules-ci-agent\nglobal flake:home-manager github:nix-community/home-manager\nglobal flake:hydra github:NixOS/hydra\nglobal flake:mach-nix github:DavHau/mach-nix\nglobal flake:nimble github:nix-community/flake-nimble\nglobal flake:nix github:NixOS/nix\nglobal flake:nix-darwin github:LnL7/nix-darwin\nglobal flake:nixops github:NixOS/nixops\nglobal flake:nixos-hardware github:NixOS/nixos-hardware\nglobal flake:nixos-homepage github:NixOS/nixos-homepage\nglobal flake:nixos-search github:NixOS/nixos-search\nglobal flake:nur github:nix-community/NUR\nsystem flake:nixpkgs github:NixOS/nixpkgs/nixpkgs-system-registry\nglobal flake:nixpkgs github:NixOS/nixpkgs/nixpkgs-global-registry\nglobal flake:templates github:NixOS/templates\nglobal flake:patchelf github:NixOS/patchelf\nglobal flake:poetry2nix github:nix-community/poetry2nix\nglobal flake:nix-serve github:edolstra/nix-serve\nglobal flake:nickel github:tweag/nickel\nglobal flake:bundlers github:NixOS/bundlers\nglobal flake:pridefetch github:SpyHoodle/pridefetch\nglobal flake:systems github:nix-systems/default\nglobal flake:helix github:helix-editor/helix\nglobal flake:sops-nix github:Mic92/sops-nix\n" :: Text
-
-dbWithOnlyGlobalNixpkgs = "global flake:agda github:agda/agda\nglobal flake:arion github:hercules-ci/arion\nglobal flake:blender-bin github:edolstra/nix-warez?dir=blender\nglobal flake:composable github:ComposableFi/composable\nglobal flake:dreampkgs github:nix-community/dreampkgs\nglobal flake:dwarffs github:edolstra/dwarffs\nglobal flake:emacs-overlay github:nix-community/emacs-overlay\nglobal flake:fenix github:nix-community/fenix\nglobal flake:flake-parts github:hercules-ci/flake-parts\nglobal flake:flake-utils github:numtide/flake-utils\nglobal flake:gemini github:nix-community/flake-gemini\nglobal flake:hercules-ci-effects github:hercules-ci/hercules-ci-effects\nglobal flake:hercules-ci-agent github:hercules-ci/hercules-ci-agent\nglobal flake:home-manager github:nix-community/home-manager\nglobal flake:hydra github:NixOS/hydra\nglobal flake:mach-nix github:DavHau/mach-nix\nglobal flake:nimble github:nix-community/flake-nimble\nglobal flake:nix github:NixOS/nix\nglobal flake:nix-darwin github:LnL7/nix-darwin\nglobal flake:nixops github:NixOS/nixops\nglobal flake:nixos-hardware github:NixOS/nixos-hardware\nglobal flake:nixos-homepage github:NixOS/nixos-homepage\nglobal flake:nixos-search github:NixOS/nixos-search\nglobal flake:nur github:nix-community/NUR\nglobal flake:nixpkgs github:NixOS/nixpkgs/nixpkgs-global-registry\nglobal flake:templates github:NixOS/templates\nglobal flake:patchelf github:NixOS/patchelf\nglobal flake:poetry2nix github:nix-community/poetry2nix\nglobal flake:nix-serve github:edolstra/nix-serve\nglobal flake:nickel github:tweag/nickel\nglobal flake:bundlers github:NixOS/bundlers\nglobal flake:pridefetch github:SpyHoodle/pridefetch\nglobal flake:systems github:nix-systems/default\nglobal flake:helix github:helix-editor/helix\nglobal flake:sops-nix github:Mic92/sops-nix\n" :: Text
-
-dbWithGlobalToSystemNixpkgs = "global flake:agda github:agda/agda\nglobal flake:arion github:hercules-ci/arion\nglobal flake:blender-bin github:edolstra/nix-warez?dir=blender\nglobal flake:composable github:ComposableFi/composable\nglobal flake:dreampkgs github:nix-community/dreampkgs\nglobal flake:dwarffs github:edolstra/dwarffs\nglobal flake:emacs-overlay github:nix-community/emacs-overlay\nglobal flake:fenix github:nix-community/fenix\nglobal flake:flake-parts github:hercules-ci/flake-parts\nglobal flake:flake-utils github:numtide/flake-utils\nglobal flake:gemini github:nix-community/flake-gemini\nglobal flake:hercules-ci-effects github:hercules-ci/hercules-ci-effects\nglobal flake:hercules-ci-agent github:hercules-ci/hercules-ci-agent\nglobal flake:home-manager github:nix-community/home-manager\nglobal flake:hydra github:NixOS/hydra\nglobal flake:mach-nix github:DavHau/mach-nix\nglobal flake:nimble github:nix-community/flake-nimble\nglobal flake:nix github:NixOS/nix\nglobal flake:nix-darwin github:LnL7/nix-darwin\nglobal flake:nixops github:NixOS/nixops\nglobal flake:nixos-hardware github:NixOS/nixos-hardware\nglobal flake:nixos-homepage github:NixOS/nixos-homepage\nglobal flake:nixos-search github:NixOS/nixos-search\nglobal flake:nur github:nix-community/NUR\nglobal flake:nixpkgs github:NixOS/nixpkgs/nixpkgs-global-registry\nsystem flake:nixpkgs github:NixOS/nixpkgs/nixpkgs-system-registry\nglobal flake:templates github:NixOS/templates\nglobal flake:patchelf github:NixOS/patchelf\nglobal flake:poetry2nix github:nix-community/poetry2nix\nglobal flake:nix-serve github:edolstra/nix-serve\nglobal flake:nickel github:tweag/nickel\nglobal flake:bundlers github:NixOS/bundlers\nglobal flake:pridefetch github:SpyHoodle/pridefetch\nglobal flake:systems github:nix-systems/default\nglobal flake:helix github:helix-editor/helix\nglobal flake:sops-nix github:Mic92/sops-nix\n" :: Text
-
-dbWithGlobalToSystemCustomPkgs = "global flake:arion github:hercules-ci/arion\nglobal flake:blender-bin github:edolstra/nix-warez?dir=blender\nglobal flake:composable github:ComposableFi/composable\nglobal flake:dreampkgs github:nix-community/dreampkgs\nglobal flake:dwarffs github:edolstra/dwarffs\nglobal flake:emacs-overlay github:nix-community/emacs-overlay\nglobal flake:fenix github:nix-community/fenix\nglobal flake:flake-parts github:hercules-ci/flake-parts\nglobal flake:flake-utils github:numtide/flake-utils\nglobal flake:gemini github:nix-community/flake-gemini\nglobal flake:hercules-ci-effects github:hercules-ci/hercules-ci-effects\nglobal flake:hercules-ci-agent github:hercules-ci/hercules-ci-agent\nglobal flake:home-manager github:nix-community/home-manager\nglobal flake:hydra github:NixOS/hydra\nglobal flake:mach-nix github:DavHau/mach-nix\nglobal flake:nimble github:nix-community/flake-nimble\nglobal flake:nix github:NixOS/nix\nglobal flake:nix-darwin github:LnL7/nix-darwin\nglobal flake:nixops github:NixOS/nixops\nglobal flake:nixos-hardware github:NixOS/nixos-hardware\nglobal flake:nixos-homepage github:NixOS/nixos-homepage\nglobal flake:nixos-search github:NixOS/nixos-search\nglobal flake:nur github:nix-community/NUR\nglobal flake:custompkgs github:NixOS/custompkgs/custompkgs-global-registry\nsystem flake:custompkgs github:NixOS/custompkgs/custompkgs-system-registry\nglobal flake:templates github:NixOS/templates\nglobal flake:patchelf github:NixOS/patchelf\nglobal flake:poetry2nix github:nix-community/poetry2nix\nglobal flake:nix-serve github:edolstra/nix-serve\nglobal flake:nickel github:tweag/nickel\nglobal flake:bundlers github:NixOS/bundlers\nglobal flake:pridefetch github:SpyHoodle/pridefetch\nglobal flake:systems github:nix-systems/default\nglobal flake:helix github:helix-editor/helix\nglobal flake:sops-nix github:Mic92/sops-nix\nglobal flake:nixpkgs github:NixOS/nixpkgs/nixpkgs-unstable\n" :: Text
-
-dbWithSystemToGlobalCustomPkgs = "global flake:flake-utils github:numtide/flake-utils\nsystem flake:custompkgs github:NixOS/custompkgs/custompkgs-system-registry\nglobal flake:custompkgs github:NixOS/custompkgs/custompkgs-global-registry\nglobal flake:nixpkgs github:NixOS/nixpkgs/nixpkgs-unstable\n" :: Text

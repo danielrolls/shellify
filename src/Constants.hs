@@ -26,6 +26,12 @@ Options
     the versions of dependencies are kept for reproducibility and so that
     shells are cached to load faster.
 
+    --allow-local-pinned-registries-to-be-prioritized
+    Pinned local repoisitory URLs are usually taken last when looking for URLs for
+    generated flake.nix files. This is usually desired. If you do however want
+    to see these pinned entries in the flake file as specified in your registry,
+    then set this flag.
+
     --version
     Show the version number
 |]
