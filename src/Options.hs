@@ -1,4 +1,4 @@
-module Options (Package(..), Options(..), def, Packages, options) where
+module Options (Package(..), Options(..), OutputForm(..), def, Packages(Packages), options) where
 import Prelude hiding (takeWhile, writeFile)
 
 import Constants
@@ -23,14 +23,27 @@ import System.Exit (exitWith)
 import System.IO (stderr)
 import Text.StringTemplate (newSTMP, render, setAttribute, StringTemplate)
 
+data OutputForm = Traditional
+                | Flake
+     deriving (Eq, Show)
+
+newtype Packages = Packages [ Package ] deriving Show
+
+
 type Package = Text
-type Packages = [ Package ]
+
+instance Eq Packages where
+  Packages a == Packages b = sort a == sort b
+
+packageList = toPackageList . packages
+  where toPackageList (Packages p) = p
+
 data Options = Options {
     packages :: Packages
   , command :: Maybe Text
-  , generateFlake :: Bool
+  , outputForm :: !OutputForm
   , prioritiseLocalPinnedSystem :: Bool
-}
+} deriving (Eq, Show)
 
 data OptionsParser = OptionsParser [Text] -- remainingOptions
                                    (Either Text (Options -> Options)) -- result
@@ -47,7 +60,7 @@ options progName args =
                let (OptionsParser newRemaining newRes) = f hd tl
                in worker $ OptionsParser newRemaining ((.) <$> newRes <*> res)
 
-      screenForNoPackages (Right opts) | null (packages opts) = Left noPackagesError
+      screenForNoPackages (Right opts) | null (packageList opts) = Left noPackagesError
       screenForNoPackages anyThingElse = anyThingElse
       initialArgumentsToParse = shellArgFilter args
       initialModifier = Right $ if hasShellArg args then setFlakeGeneration else id
@@ -66,7 +79,7 @@ options progName args =
         baseOption :: Text -> [Text] -> OptionsParser
         baseOption "-h" = returnError $ helpText progName
         baseOption "--help" = returnError $ helpText progName
-        baseOption "--version" = returnError $ "Shellify " <> (pack $ showVersion version)
+        baseOption "--version" = returnError $ "Shellify " <> pack ( showVersion version)
         baseOption "--command" = handleCommandSwitch
         baseOption "--run" = handleCommandSwitch
         baseOption "--with-flake" = transformOptionsWith setFlakeGeneration
@@ -81,13 +94,15 @@ options progName args =
                                     = transformOptionsWith (setCommand hd) tl
         handleCommandSwitch [] = returnError "Argument missing to switch" []
 
-        appendPackages ps opts = opts{packages=ps ++ packages opts}
+        appendPackages ps opts = opts{
+          packages = Packages (ps ++ packageList opts)
+        }
         setCommand cmd opts = opts{command=Just cmd}
-        setFlakeGeneration opts = opts{generateFlake=True}
+        setFlakeGeneration opts = opts{outputForm=Flake}
         setPrioritiseLocalPinnedSystem opts = opts {prioritiseLocalPinnedSystem=True}
         returnError errorText remaining = OptionsParser remaining $ Left errorText
 
-consumePackageArgs :: [Text] -> (Packages, [Text])
+consumePackageArgs :: [Text] -> ([Package], [Text])
 consumePackageArgs = worker []
   where worker pkgs [] = (pkgs, [])
         worker pkgs options@(hd:_) | isSwitch hd
@@ -102,10 +117,4 @@ hasShellArg (hd:tl) | isSwitch hd = hasShellArg tl
 isSwitch = isPrefixOf "-"
 
 instance Default Options where
-  def = Options [] Nothing False False
-
-instance Eq Options where
-  a == b =  isEqual command
-         && isEqual (sort . packages)
-         && isEqual generateFlake
-    where isEqual f = f a == f b
+  def = Options (Packages []) Nothing Traditional False

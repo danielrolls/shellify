@@ -45,17 +45,17 @@ main = hspec $ do
       it "allows a command to be specified with a package" $
         theOptions "-p python --command cowsay"
           `shouldBe`
-        Right def{packages=["python"], command=Just "cowsay"}
+        Right def{packages=Packages ["python"], command=Just "cowsay"}
 
       it "allows a command to be specified before a package" $
         theOptions "--run cowsay -p python"
           `shouldBe`
-        Right def{packages=["python"], command=Just "cowsay"}
+        Right def{packages=Packages ["python"], command=Just "cowsay"}
 
       it "allows a command to be specified before and after a package" $
         theOptions "-p cowsay --command cowsay -p python"
           `shouldBe`
-        Right def{packages=[ "cowsay", "python" ], command=Just "cowsay"}
+        Right def{packages=Packages [ "cowsay", "python" ], command=Just "cowsay"}
 
       it "fails if command has no argument" $ do
         shellifyWithArgs "--command -p python"
@@ -96,7 +96,7 @@ main = hspec $ do
     it "supports new shell commands" $
       theOptions "shell nixpkgs#python nixpkgs#cowsay"
         `shouldBe`
-      Right def{packages=[ "nixpkgs#python", "nixpkgs#cowsay" ], generateFlake=True}
+      Right def{packages=Packages [ "nixpkgs#python", "nixpkgs#cowsay" ], outputForm=Flake}
 
   describe "When dealing with multiple source repositories it should produce the correct output files for" $ do
 

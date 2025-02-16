@@ -17,7 +17,7 @@ import Text.ParserCombinators.Parsec (Parser, char, endBy, eof, many1, noneOf, p
 import Text.StringTemplate (newSTMP, render, setAttribute)
 
 generateFlakeText :: Text -> Options -> Maybe Text
-generateFlakeText db Options{packages=packages, generateFlake=shouldGenerateFlake, prioritiseLocalPinnedSystem=prioritiseLocalPinnedSystem} =
+generateFlakeText db Options{packages=Packages packages, outputForm=outputForm, prioritiseLocalPinnedSystem=prioritiseLocalPinnedSystem} =
   bool
     Nothing
     (Just $ render
@@ -26,7 +26,7 @@ generateFlakeText db Options{packages=packages, generateFlake=shouldGenerateFlak
           $ setAttribute "pkgs_decls" pkgsDecls
           $ setAttribute "shell_args" shellArgs
           $ newSTMP flakeTemplate)
-    shouldGenerateFlake
+    (outputForm == Flake)
   where repos = getPackageRepoWrapper packages
         repoVars = getPackageRepoVarName <$> repos
         repoInputs = repoInput <$> repos
@@ -42,7 +42,7 @@ generateFlakeText db Options{packages=packages, generateFlake=shouldGenerateFlak
         shellArgs = (\(a,b) -> a <> "=" <> b <> ";") <$> zip repoVars pkgsVars 
 
 generateShellDotNixText :: Options -> Text
-generateShellDotNixText Options{packages=packages, command=command} =
+generateShellDotNixText Options{packages=Packages packages, command=command} =
   render
   $ setAttribute "build_inputs" pkgs
   $ setAttribute "parameters" parameters
