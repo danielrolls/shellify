@@ -136,11 +136,7 @@ theOptions = options "nix-shellify" . words
 instance Show Options
 
 readNixTemplate :: FilePath -> IO Text
-readNixTemplate fileName =
-    stripTrailingNewline <$> readFile ("test/outputs/" <> fileName)
-    where stripTrailingNewline f = bool id stripLastChar (lastCharIsNewline f) f
-          lastCharIsNewline = (== '\n') . last
-          stripLastChar = reverse . tail . reverse
+readNixTemplate fileName = readFile ("test/outputs/" <> fileName)
 
 flakeFile = (<> "-flake.nix")
 shellFile = (<> "-shell.nix")
