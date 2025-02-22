@@ -24,4 +24,6 @@ flakeTemplate = [r|{
           devShells.default = import ./shell.nix { $shell_args;separator=' '$ };
         }
       );
-}|]
+}
+
+|]
