@@ -1,5 +1,8 @@
 # Changelog for Shellify
 
+## Next Release
+- Return exit code zero when some invalid options are passed
+
 ## 0.12.0
 - Add --allow-local-pinned-registries-to-be-prioritized switch
 - Prioiritise registries favouring those not pinned to local
