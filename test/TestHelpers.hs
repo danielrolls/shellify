@@ -1,10 +1,9 @@
 module TestHelpers where
 
-import Prelude hiding (last, putStrLn, readFile, reverse, tail, unlines, words)
-import Data.Bool (bool)
-import Data.Text (isInfixOf, last, reverse, tail, Text(), unpack, unlines, words)
-import Data.Text.IO (putStrLn, readFile)
-import Test.Hspec (Expectation(), expectationFailure, it, shouldBe, shouldContain)
+import Prelude hiding (readFile, unlines, words)
+import Data.Text (Text(), unpack, unlines, words)
+import Data.Text.IO (readFile)
+import Test.Hspec (Expectation(), expectationFailure, shouldBe, shouldContain)
 import Options
 import Shellify
 import TemplateGeneration
