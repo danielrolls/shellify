@@ -4,11 +4,11 @@ import Data.Text (Text())
 import Text.RawString.QQ (r)
 
 helpText :: Text -> Text
-helpText progName = "USAGE: " <> progName <> [r| -p [PACKAGES] 
-       |] <> progName <> [r| [--with-flakes] [PACKAGES]
+helpText progName = "USAGE: " <> progName <> [r| -p [PACKAGES] [--with-flakes]
+       |] <> progName <> [r| shell [PACKAGES]
 
 Pass nix-shell arguments to nix-shellify to have it generate a shell.nix in
-the current directory. You can then just run nix shell or nix-shell in that
+the current directory. You can then just run nix develop or nix-shell in that
 directory to have those packages in your environment. To run nix commands
 you must first install Nix.
 
@@ -21,8 +21,8 @@ Options
     Command to run after creating the shell
 
     --with-flake
-    When using the command in a flake-like style use this switch to have a
-    flake.nix created in addition to a shell.nix. Highly recommended to ensure
+    When using the -p option to specify packages, use this switch to have a
+    flake.nix created in addition to a shell.nix. This is recommended to ensure
     the versions of dependencies are kept for reproducibility and so that
     shells are cached to load faster.
 

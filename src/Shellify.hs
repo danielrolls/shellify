@@ -25,8 +25,8 @@ createAFile (name, content) = do extCde <- createFile (unpack name) content
 runShellify :: [Text] -> IO ()
 runShellify(pName:args) = getRegistryDB
              >>= either
-                   ((printErrorAndReturnFailure . ("Error calling nix registry: " <>) ) >=> exitWith)
-                   (\registryDB -> either printError
+                   (printErrorAndReturnFailure . ("Error calling nix registry: " <>))
+                   (\registryDB -> either printErrorAndReturnFailure
                                           (mapM_ createAFile)
                                           $ parseOptionsAndCalculateExpectedFiles registryDB pName args)
 
@@ -66,6 +66,6 @@ returnCode _ _ = ExitFailure 1
 shouldGenerateNewFile :: Maybe Text -> Bool
 shouldGenerateNewFile = (== Nothing)
 
-printErrorAndReturnFailure err = printError err >> return (ExitFailure 1)
+printErrorAndReturnFailure err = printError err >> exitWith (ExitFailure 1)
 printError = hPutStrLn stderr
 
