@@ -1,7 +1,8 @@
 # Changelog for Shellify
 
-## Next Release
+## 0.13.0
 - Return exit code zero when some invalid options are passed
+- End shell and flake files with a newline character
 
 ## 0.12.0
 - Add --allow-local-pinned-registries-to-be-prioritized switch
