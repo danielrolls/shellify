@@ -30,10 +30,10 @@ main = hspec $ do
     it "should not support -p with shell" $ do
       shellifyWithArgs "shell -p cowsay"
          `shouldBe`
-        Left "-p not supported with new style commands"
+        Left "-p and --packages are not supported with new style commands"
       shellifyWithArgs "shell nixpkgs#python --packages foo nixpkgs#cowsay"
          `shouldBe`
-        Left "--packages not supported with new style commands"
+        Left "-p and --packages are not supported with new style commands"
 
     describe "When using the --command option" $ do
 
@@ -45,17 +45,17 @@ main = hspec $ do
       it "allows a command to be specified with a package" $
         theOptions "-p python --command cowsay"
           `shouldBe`
-        Right def{packages=Packages ["python"], command=Just "cowsay"}
+        Right def{_packages=Packages ["python"], _command=Just "cowsay"}
 
       it "allows a command to be specified before a package" $
         theOptions "--run cowsay -p python"
           `shouldBe`
-        Right def{packages=Packages ["python"], command=Just "cowsay"}
+        Right def{_packages=Packages ["python"], _command=Just "cowsay"}
 
       it "allows a command to be specified before and after a package" $
         theOptions "-p cowsay --command cowsay -p python"
           `shouldBe`
-        Right def{packages=Packages [ "cowsay", "python" ], command=Just "cowsay"}
+        Right def{_packages=Packages [ "cowsay", "python" ], _command=Just "cowsay"}
 
       it "fails if command has no argument" $ do
         shellifyWithArgs "--command -p python"
@@ -96,7 +96,7 @@ main = hspec $ do
     it "supports new shell commands" $
       theOptions "shell nixpkgs#python nixpkgs#cowsay"
         `shouldBe`
-      Right def{packages=Packages [ "nixpkgs#python", "nixpkgs#cowsay" ], outputForm=Flake}
+      Right def{_packages=Packages [ "nixpkgs#python", "nixpkgs#cowsay" ], _outputForm=Flake}
 
   describe "When dealing with multiple source repositories it should produce the correct output files for" $ do
 
