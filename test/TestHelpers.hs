@@ -128,12 +128,12 @@ shouldResultInPackages :: Text -> [Text] -> Expectation
 shouldResultInPackages parameters packages =
      theOptions parameters
        `shouldBe`
-     Right def{packages=Packages packages}
+     Right def{_packages=Packages packages}
 
 theOptions = options "nix-shellify" . words
 
 readNixTemplate :: FilePath -> IO Text
-readNixTemplate fileName = readFile ("test/outputs/" <> fileName)
+readNixTemplate = readFile . ("test/outputs/" <>)
 
 flakeFile = (<> "-flake.nix")
 shellFile = (<> "-shell.nix")

@@ -1,27 +1,17 @@
+{-# LANGUAGE TemplateHaskell #-}
 module Options (Package(..), Options(..), OutputForm(..), def, Packages(Packages), options) where
-import Prelude hiding (takeWhile, writeFile)
 
 import Constants
 import FlakeTemplate
 import ShellifyTemplate
 
-import Control.Applicative ((<|>))
-import Control.Arrow ((+++))
-import Control.Monad (when)
-import Data.Bool (bool)
+import Control.Lens.Combinators (makeLenses, makePrisms, set, over, view)
 import Data.Default (Default(def))
-import Data.List (find, sort)
+import Data.List (sort)
 import Data.Maybe (fromMaybe)
-import Data.Text (isInfixOf, isPrefixOf, pack, replace, splitOn, stripPrefix, takeWhile, Text(), unpack)
-import Data.Text.IO (hPutStrLn, writeFile)
+import Data.Text (isPrefixOf, pack, Text())
 import Data.Version (showVersion)
-import qualified Data.Text.IO as Text
-import GHC.IO.Exception (ExitCode(ExitSuccess, ExitFailure))
 import Paths_shellify (version)
-import System.Directory (doesPathExist)
-import System.Exit (exitWith)
-import System.IO (stderr)
-import Text.StringTemplate (newSTMP, render, setAttribute, StringTemplate)
 
 data OutputForm = Traditional
                 | Flake
@@ -29,24 +19,26 @@ data OutputForm = Traditional
 
 newtype Packages = Packages [ Package ] deriving Show
 
-
 type Package = Text
 
 instance Eq Packages where
   Packages a == Packages b = sort a == sort b
 
-packageList = toPackageList . packages
-  where toPackageList (Packages p) = p
+makePrisms ''Packages
 
 data Options = Options {
-    packages :: Packages
-  , command :: Maybe Text
-  , outputForm :: !OutputForm
-  , prioritiseLocalPinnedSystem :: Bool
+    _packages :: !Packages
+  , _command :: !(Maybe Text)
+  , _outputForm :: !OutputForm
+  , _prioritiseLocalPinnedSystem :: !Bool
 } deriving (Eq, Show)
 
-data OptionsParser = OptionsParser [Text] -- remainingOptions
-                                   (Either Text (Options -> Options)) -- result
+makeLenses ''Options
+
+packageList = view (packages . _Packages)
+
+data OptionsParser = OptionsParser [Text] -- | remainingOptions
+                                   (Either Text (Options -> Options)) -- | result
 
 options :: Text -> [Text] -> Either Text Options
 options progName args =
@@ -71,9 +63,9 @@ options progName args =
         oldStyleOption "-p" = handlePackageSwitch
         oldStyleOption "--packages" = handlePackageSwitch
         oldStyleOption opt = baseOption opt
-        newStyleOption "-p" = returnError "-p not supported with new style commands"
-        newStyleOption "--packages" = returnError "--packages not supported with new style commands"
-        newStyleOption "--allow-local-pinned-registries-to-be-prioritized" = transformOptionsWith setPrioritiseLocalPinnedSystem
+        newStyleOption "-p" = returnError "-p and --packages are not supported with new style commands"
+        newStyleOption "--packages" = returnError "-p and --packages are not supported with new style commands"
+        newStyleOption "--allow-local-pinned-registries-to-be-prioritized" = transformOptionsWith $ set prioritiseLocalPinnedSystem True
         newStyleOption arg | isSwitch arg = baseOption arg
                            | otherwise = transformOptionsWith $ appendPackages [arg]
         baseOption :: Text -> [Text] -> OptionsParser
@@ -84,22 +76,17 @@ options progName args =
         baseOption "--run" = handleCommandSwitch
         baseOption "--with-flake" = transformOptionsWith setFlakeGeneration
         baseOption _ = transformOptionsWith id
-        --doNothing = transformOptionsWith id
         transformOptionsWith fun wds = OptionsParser wds (Right fun)
         handlePackageSwitch wds = let (pkgs, remainingOptions) = consumePackageArgs wds
                                   in transformOptionsWith (appendPackages pkgs) remainingOptions
         handleCommandSwitch (hd:tl) | isSwitch hd
                                     = returnError "Argument missing to switch" tl
                                     | otherwise
-                                    = transformOptionsWith (setCommand hd) tl
+                                    = transformOptionsWith (set Options.command (Just hd)) tl
         handleCommandSwitch [] = returnError "Argument missing to switch" []
 
-        appendPackages ps opts = opts{
-          packages = Packages (ps ++ packageList opts)
-        }
-        setCommand cmd opts = opts{command=Just cmd}
-        setFlakeGeneration opts = opts{outputForm=Flake}
-        setPrioritiseLocalPinnedSystem opts = opts {prioritiseLocalPinnedSystem=True}
+        appendPackages = over (packages. _Packages) . (++)
+        setFlakeGeneration = set outputForm Flake
         returnError errorText remaining = OptionsParser remaining $ Left errorText
 
 consumePackageArgs :: [Text] -> ([Package], [Text])

@@ -17,7 +17,7 @@ import Text.ParserCombinators.Parsec (Parser, char, endBy, eof, many1, noneOf, p
 import Text.StringTemplate (newSTMP, render, setAttribute)
 
 generateFlakeText :: Text -> Options -> Maybe Text
-generateFlakeText db Options{packages=Packages packages, outputForm=outputForm, prioritiseLocalPinnedSystem=prioritiseLocalPinnedSystem} =
+generateFlakeText db Options{_packages=Packages packages, _outputForm=outputForm, _prioritiseLocalPinnedSystem=_prioritiseLocalPinnedSystem} =
   bool
     Nothing
     (Just $ render
@@ -35,14 +35,14 @@ generateFlakeText db Options{packages=Packages packages, outputForm=outputForm, 
           either
             (error . ("Unexpected output from nix registry call: " <>))
             (fromMaybe "PLEASE ENTER input here")
-            . findFlakeRepoUrl prioritiseLocalPinnedSystem db $ repoName
+            . findFlakeRepoUrl _prioritiseLocalPinnedSystem db $ repoName
         pkgsVar = (<> "Pkgs")
         pkgsVars = pkgsVar <$> repos
         pkgsDecls = (\repo -> pkgsDecl (pkgsVar repo) repo) <$> repos
         shellArgs = (\(a,b) -> a <> "=" <> b <> ";") <$> zip repoVars pkgsVars 
 
 generateShellDotNixText :: Options -> Text
-generateShellDotNixText Options{packages=Packages packages, command=command} =
+generateShellDotNixText Options{_packages=Packages packages, _command=command} =
   render
   $ setAttribute "build_inputs" pkgs
   $ setAttribute "parameters" parameters
