@@ -3,37 +3,12 @@ module Constants where
 import Data.Text (Text())
 import Text.RawString.QQ (r)
 
-helpText :: Text -> Text
-helpText progName = "USAGE: " <> progName <> [r| -p [PACKAGES] [--with-flakes]
-       |] <> progName <> [r| shell [PACKAGES]
-
-Pass nix-shell arguments to nix-shellify to have it generate a shell.nix in
-the current directory. You can then just run nix develop or nix-shell in that
-directory to have those packages in your environment. To run nix commands
-you must first install Nix.
-
-Options
-
-    -p / --packages
-    Specify packages for nix-shell compatability
-
-    --command / --run
-    Command to run after creating the shell
-
-    --with-flake
-    When using the -p option to specify packages, use this switch to have a
-    flake.nix created in addition to a shell.nix. This is recommended to ensure
-    the versions of dependencies are kept for reproducibility and so that
-    shells are cached to load faster.
-
-    --allow-local-pinned-registries-to-be-prioritized
-    Pinned local repoisitory URLs are usually taken last when looking for URLs for
-    generated flake.nix files. This is usually desired. If you do however want
-    to see these pinned entries in the flake file as specified in your registry,
-    then set this flag.
-
-    --version
-    Show the version number
+hlDesc :: String
+hlDesc = [r|
+  Pass nix-shell arguments to nix-shellify to have it generate a shell.nix in
+  the current directory. You can then just run nix develop or nix-shell in that
+  directory to have those packages in your environment. To run nix commands
+  you must first install Nix.
 |]
 
 noPackagesError = [r|I can't write out a shell file without any packages specified.
