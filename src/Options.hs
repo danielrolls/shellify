@@ -40,12 +40,14 @@ commandParser = CommandLineOptions
             long "packages"
          <> short 'p'
          <> metavar "PACKAGE"
+         <> help "Packages to install in the shell.nix file. This option can be used multiple times to specify multiple packages"
          )))
      <*> optional (option str (
             long "command"
          <> long "run"
          <> short 'c'
          <> metavar "COMMAND"
+         <> help "Command to run on initial shell startup"
          ))
      <*> switch (
             long "with-flake"
