@@ -1,13 +1,13 @@
 module Main where
 
-import Data.Text (pack)
-import Shellify (runShellify)
-import System.Environment (getArgs, getProgName)
+import Shellify (runShellify, printErrorAndReturnFailure)
+import System.Environment (getArgs)
+import Options(parseCommandLine)
+import Options.Applicative (handleParseResult)
+import Control.Monad ((>=>))
 
 main :: IO ()
-main = do
-  progName <- pack <$> getProgName
-  getTextArgs
-    >>= runShellify . (<>) [progName]
-
-getTextArgs = fmap pack <$> getArgs
+main = getArgs >>=
+         either printErrorAndReturnFailure
+                (handleParseResult >=> runShellify )
+         . parseCommandLine

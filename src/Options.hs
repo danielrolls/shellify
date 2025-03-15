@@ -1,17 +1,19 @@
 {-# LANGUAGE TemplateHaskell #-}
-module Options (Package(..), Options(..), OutputForm(..), def, Packages(Packages), options) where
+module Options (Options(..), OutputForm(..), Package(..), Packages(Packages), parseCommandLine) where
 
 import Constants
 import FlakeTemplate
 import ShellifyTemplate
 
-import Control.Lens.Combinators (makeLenses, makePrisms, set, over, view)
+import Control.Lens.Combinators (makeLenses, makePrisms)
 import Data.Default (Default(def))
-import Data.List (sort)
-import Data.Maybe (fromMaybe)
-import Data.Text (isPrefixOf, pack, Text())
+import Data.List (isPrefixOf, sort)
+import Data.Maybe (fromMaybe, isJust)
+import Data.Text (pack, Text(), unpack)
 import Data.Version (showVersion)
+import Options.Applicative ((<**>), Parser, ParserResult(Success, Failure, CompletionInvoked), argument, command, defaultPrefs, execParserPure, fullDesc, header, help, helper, hidden, info, long, metavar, option, optional, progDesc, short, simpleVersioner, some, str, strOption, switch)
 import Paths_shellify (version)
+import System.Environment (getArgs)
 
 data OutputForm = Traditional
                 | Flake
@@ -26,6 +28,40 @@ instance Eq Packages where
 
 makePrisms ''Packages
 
+opts = info (commandParser <**> simpleVersioner (showVersion version)
+                           <**> helper) $
+            fullDesc
+         <> progDesc hlDesc
+         <> header "Quickly generate shell.nix files once you have a working shell"
+
+commandParser :: Parser CommandLineOptions
+commandParser = CommandLineOptions
+     <$> optional (some (option str (
+            long "packages"
+         <> short 'p'
+         <> metavar "PACKAGE"
+         )))
+     <*> optional (option str (
+            long "command"
+         <> long "run"
+         <> short 'c'
+         <> metavar "COMMAND"
+         ))
+     <*> switch (
+            long "with-flake"
+         <> help "When using the -p option to specify packages, use this switch to have a flake.nix created in addition to a shell.nix. This is recommended to ensure the versions of dependencies are kept for reproducibility and so that shells are cached to load faster."
+         )
+     <*> switch (
+            long "allow-local-pinned-registries-to-be-prioritized"
+         <> help "Pinned local repoisitory URLs are usually taken last when looking for URLs for generated flake.nix files. This is usually desired. If you do however want to see these pinned entries in the flake file as specified in your registry, then set this flag."
+         )
+     <*> optional (some (option str (
+           long "arg"
+        <> long "argstr"
+        <> hidden
+        )))
+     <*> optional (some (argument str (metavar "shell PACKAGES...")))
+
 data Options = Options {
     _packages :: !Packages
   , _command :: !(Maybe Text)
@@ -33,75 +69,56 @@ data Options = Options {
   , _prioritiseLocalPinnedSystem :: !Bool
 } deriving (Eq, Show)
 
+data CommandLineOptions = CommandLineOptions {
+    __packages :: !(Maybe [Text])
+  , __command :: !(Maybe Text)
+  , __withFlake :: !Bool
+  , __prioritiseLocalPinnedSystem :: Bool
+  , __discard :: !(Maybe [String])
+  , __shellPackages :: Maybe [Package]
+} deriving (Show)
+
 makeLenses ''Options
 
-packageList = view (packages . _Packages)
-
-data OptionsParser = OptionsParser [Text] -- | remainingOptions
-                                   (Either Text (Options -> Options)) -- | result
-
-options :: Text -> [Text] -> Either Text Options
-options progName args =
-  let optionsHandler | hasShellArg args = newStyleOption
-                     | otherwise = oldStyleOption
-      shellArgFilter | hasShellArg args = filter (/= "shell")
-                     | otherwise = id
-      optionsCaller f = worker 
-       where worker (OptionsParser [] t) = t
-             worker (OptionsParser (hd:tl) res) =
-               let (OptionsParser newRemaining newRes) = f hd tl
-               in worker $ OptionsParser newRemaining ((.) <$> newRes <*> res)
-
-      screenForNoPackages (Right opts) | null (packageList opts) = Left noPackagesError
-      screenForNoPackages anyThingElse = anyThingElse
-      initialArgumentsToParse = shellArgFilter args
-      initialModifier = Right $ if hasShellArg args then setFlakeGeneration else id
-      initialOptionParser = OptionsParser initialArgumentsToParse initialModifier
-  in screenForNoPackages $ ($ def) <$> optionsCaller optionsHandler initialOptionParser
-
-  where oldStyleOption :: Text -> [Text] -> OptionsParser
-        oldStyleOption "-p" = handlePackageSwitch
-        oldStyleOption "--packages" = handlePackageSwitch
-        oldStyleOption opt = baseOption opt
-        newStyleOption "-p" = returnError "-p and --packages are not supported with new style commands"
-        newStyleOption "--packages" = returnError "-p and --packages are not supported with new style commands"
-        newStyleOption "--allow-local-pinned-registries-to-be-prioritized" = transformOptionsWith $ set prioritiseLocalPinnedSystem True
-        newStyleOption arg | isSwitch arg = baseOption arg
-                           | otherwise = transformOptionsWith $ appendPackages [arg]
-        baseOption :: Text -> [Text] -> OptionsParser
-        baseOption "-h" = returnError $ helpText progName
-        baseOption "--help" = returnError $ helpText progName
-        baseOption "--version" = returnError $ "Shellify " <> pack ( showVersion version)
-        baseOption "--command" = handleCommandSwitch
-        baseOption "--run" = handleCommandSwitch
-        baseOption "--with-flake" = transformOptionsWith setFlakeGeneration
-        baseOption _ = transformOptionsWith id
-        transformOptionsWith fun wds = OptionsParser wds (Right fun)
-        handlePackageSwitch wds = let (pkgs, remainingOptions) = consumePackageArgs wds
-                                  in transformOptionsWith (appendPackages pkgs) remainingOptions
-        handleCommandSwitch (hd:tl) | isSwitch hd
-                                    = returnError "Argument missing to switch" tl
-                                    | otherwise
-                                    = transformOptionsWith (set Options.command (Just hd)) tl
-        handleCommandSwitch [] = returnError "Argument missing to switch" []
-
-        appendPackages = over (packages. _Packages) . (++)
-        setFlakeGeneration = set outputForm Flake
-        returnError errorText remaining = OptionsParser remaining $ Left errorText
-
-consumePackageArgs :: [Text] -> ([Package], [Text])
-consumePackageArgs = worker []
-  where worker pkgs [] = (pkgs, [])
-        worker pkgs options@(hd:_) | isSwitch hd
-                                   = (pkgs, options)
-        worker pkgs (hd:tl) = worker (hd:pkgs) tl
-
-hasShellArg [] = False
-hasShellArg ("shell":_) = True
-hasShellArg (hd:tl) | isSwitch hd = hasShellArg tl
-                    | otherwise = False
-
-isSwitch = isPrefixOf "-"
-
 instance Default Options where
-  def = Options (Packages []) Nothing Traditional False
+  def = Options{
+    _packages = Packages [],
+    _command = Nothing,
+    _outputForm = Traditional,
+    _prioritiseLocalPinnedSystem = False
+  }
+
+parseCommandLine :: [String] -> Either Text (ParserResult Options)
+parseCommandLine =
+    (\case
+      Success res -> fmap Success (parseCommandLineOptions res)
+      Failure failure -> Right $ Failure failure
+      CompletionInvoked f -> Right $ CompletionInvoked f)
+      . execParserPure defaultPrefs opts . fixupRequest
+  where parseCommandLineOptions :: CommandLineOptions -> Either Text Options
+        parseCommandLineOptions originalParsedOptions =
+          let transformedOptions =
+                    (Options <$> Packages . ((++) <$> fromMaybe [] . __packages
+                                                  <*> shellArgs . __shellPackages)
+                             <*> __command
+                             <*> \case
+                               f | __withFlake f -> Flake
+                                 | (hasShellArg . __shellPackages) f -> Flake
+                               _ | otherwise -> Traditional
+                             <*> __prioritiseLocalPinnedSystem) originalParsedOptions
+
+          in if _packages transformedOptions == Packages [] then
+               Left noPackagesError
+             else
+               Right transformedOptions
+          where hasShellArg (Just ("shell":_)) = True
+                hasShellArg _ = False
+                shellArgs (Just ("shell": rst)) = rst
+                shellArgs _ = []
+        fixupRequest (a : b : c : d) | (a == "-p" || a == "--packages")
+                                     && isNotASwitch b
+                                     && isNotASwitch c =
+                                         a : b : fixupRequest ("-p" : c : d)
+          where isNotASwitch = not . isPrefixOf "-"
+        fixupRequest (a : b) = a : fixupRequest b
+        fixupRequest [] = []

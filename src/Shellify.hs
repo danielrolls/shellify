@@ -1,6 +1,6 @@
-module Shellify (parseOptionsAndCalculateExpectedFiles, runShellify) where
+module Shellify (printErrorAndReturnFailure, runShellify, calculateExpectedFiles) where
 
-import Prelude hiding (writeFile)
+import Prelude hiding (readFile, writeFile)
 import Constants
 import FlakeTemplate
 import Options
@@ -9,49 +9,44 @@ import TemplateGeneration
 
 import Control.Monad (when, (>=>))
 import Data.Bool (bool)
+import Data.Maybe (isNothing)
 import Data.Text (pack, Text(), unpack)
-import Data.Text.IO (hPutStrLn, writeFile)
-import qualified Data.Text.IO as Text
+import Data.Text.IO (hPutStrLn, readFile, writeFile)
 import GHC.IO.Exception (ExitCode(ExitSuccess, ExitFailure))
 import System.Directory (doesPathExist)
 import System.Exit (exitWith)
 import System.IO (stderr)
 
+runShellify :: Options -> IO ()
+runShellify opts =
+     getRegistryDB >>=
+        either
+          (printErrorAndReturnFailure . ("Error calling nix registry: " <>))
+          (mapM_ createAFile . (`calculateExpectedFiles` opts))
+
+createAFile :: (Text, Text) -> IO ()
 createAFile (name, content) = do extCde <- createFile (unpack name) content
                                  when (extCde /= ExitSuccess)
                                    $ exitWith extCde
 
+  where createFile :: FilePath -> Text -> IO ExitCode
+        createFile fileName expectedContents = do
+          fileContents <-     doesPathExist fileName
+                          >>= bool
+                               (return Nothing)
+                               (Just <$> readFile fileName)
+          printError $ actionDescription (pack fileName) expectedContents fileContents
+          when (isNothing fileContents)
+            $ writeFile fileName expectedContents
+          return $ returnCode expectedContents fileContents
 
-runShellify :: [Text] -> IO ()
-runShellify(pName:args) = getRegistryDB
-             >>= either
-                   (printErrorAndReturnFailure . ("Error calling nix registry: " <>))
-                   (\registryDB -> either printErrorAndReturnFailure
-                                          (mapM_ createAFile)
-                                          $ parseOptionsAndCalculateExpectedFiles registryDB pName args)
-
-
-parseOptionsAndCalculateExpectedFiles :: Text -> Text -> [Text] -> Either Text [(Text,Text)]
-parseOptionsAndCalculateExpectedFiles registry programName =
-  fmap
-    (\opts ->
-        ("shell.nix", generateShellDotNixText opts)
+calculateExpectedFiles :: Text -> Options -> [(Text,Text)]
+calculateExpectedFiles registry options =
+     ("shell.nix", generateShellDotNixText options)
       : maybe
             []
             (pure . ("flake.nix",))
-            (generateFlakeText registry opts))
-  . options programName
-
-createFile :: FilePath -> Text -> IO ExitCode
-createFile fileName expectedContents = do
-  fileContents <-     doesPathExist fileName
-                  >>= bool
-                       (return Nothing)
-                       (Just <$> Text.readFile fileName)
-  printError $ actionDescription (pack fileName) expectedContents fileContents
-  when (shouldGenerateNewFile fileContents)
-    $ writeFile fileName expectedContents
-  return $ returnCode expectedContents fileContents
+            (generateFlakeText registry options)
 
 actionDescription :: Text -> Text -> Maybe Text -> Text
 actionDescription fName _ Nothing = fName <> " does not exist. Creating one"
@@ -63,9 +58,5 @@ returnCode _ Nothing = ExitSuccess
 returnCode a (Just b) | a == b = ExitSuccess
 returnCode _ _ = ExitFailure 1
 
-shouldGenerateNewFile :: Maybe Text -> Bool
-shouldGenerateNewFile = (== Nothing)
-
 printErrorAndReturnFailure err = printError err >> exitWith (ExitFailure 1)
 printError = hPutStrLn stderr
-

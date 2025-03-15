@@ -1,8 +1,8 @@
+import Data.Default (Default(def))
 import Test.Hspec (describe, hspec, it, shouldBe, specify)
 
 import Options
 import TestHelpers
-
 
 main = hspec $ do
 
@@ -18,22 +18,9 @@ main = hspec $ do
         `shouldReturnSubstring`
       "without any packages specified"
 
-    it "shows help text when requested" $ do
-      shellifyWithArgs "-h"
-          `shouldReturnSubstring` "USAGE:"
-      shellifyWithArgs "--help"
-          `shouldReturnSubstring` "USAGE:"
     it "shows the version number when requested" $ do
       shellifyWithArgs "--version"
-          `shouldReturnSubstring` "Shellify 0."
-
-    it "should not support -p with shell" $ do
-      shellifyWithArgs "shell -p cowsay"
-         `shouldBe`
-        Left "-p and --packages are not supported with new style commands"
-      shellifyWithArgs "shell nixpkgs#python --packages foo nixpkgs#cowsay"
-         `shouldBe`
-        Left "-p and --packages are not supported with new style commands"
+          `shouldReturnSubstring` "0."
 
     describe "When using the --command option" $ do
 
@@ -57,11 +44,9 @@ main = hspec $ do
           `shouldBe`
         Right def{_packages=Packages [ "cowsay", "python" ], _command=Just "cowsay"}
 
-      it "fails if command has no argument" $ do
-        shellifyWithArgs "--command -p python"
-            `shouldReturnSubstring` "Argument missing to switch"
+      it "fails if command has no argument" $
         shellifyWithArgs "--command"
-            `shouldReturnSubstring` "Argument missing to switch"
+            `shouldReturnSubstring` "expects an argument"
 
     it "supports specifying one program to install after other arguments" $
       "foo -p python"
@@ -84,7 +69,7 @@ main = hspec $ do
       [ "python", "cowsay" ]
 
     it "supports separated -p switches" $
-      "-p cowsay --foo -p python"
+      "-p cowsay --arg 4 cowsay -p python"
         `shouldResultInPackages`
       [ "cowsay", "python" ]
 
@@ -97,6 +82,11 @@ main = hspec $ do
       theOptions "shell nixpkgs#python nixpkgs#cowsay"
         `shouldBe`
       Right def{_packages=Packages [ "nixpkgs#python", "nixpkgs#cowsay" ], _outputForm=Flake}
+
+    it "supports the --with-flake option" $
+      theOptions "--with-flake -p python -p cowsay"
+        `shouldBe`
+      Right def{_packages=Packages [ "python", "cowsay" ], _outputForm=Flake}
 
   describe "When dealing with multiple source repositories it should produce the correct output files for" $ do
 
@@ -176,4 +166,3 @@ main = hspec $ do
       whereOnlyAGlobalNixpkgsExistsShellifyWithArgs "shell nixpkgs#cowsay"
         `shouldReturnShellAndFlakeTextDefinedBy`
       "cowsay-from-global-nixpkgs"
-

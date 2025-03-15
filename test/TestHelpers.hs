@@ -1,13 +1,21 @@
 module TestHelpers where
 
 import Prelude hiding (readFile, unlines, words)
-import Data.Text (Text(), unpack, unlines, words)
+import Control.Monad ((>=>))
+import Data.Default (Default(def))
+import Data.Text (Text(), pack, unpack, unlines, words)
 import Data.Text.IO (readFile)
+import Data.Tuple.Extra (fst3)
 import Test.Hspec (Expectation(), expectationFailure, shouldBe, shouldContain)
-import Options
-import Shellify
-import TemplateGeneration
+import Options.Applicative (ParserResult(Success, Failure, CompletionInvoked), ParserFailure (ParserFailure))
+import Options.Applicative.Help.Pretty (prettyString)
+import Options.Applicative.Help.Types (ParserHelp(helpError))
+import Options.Applicative.Extra (ParserFailure(execFailure))
 
+import Options (Options(..), Packages(Packages), parseCommandLine)
+import Shellify ( calculateExpectedFiles )
+
+shouldReturnSubstring :: Either Text b -> [Char] -> Expectation
 shouldReturnSubstring shellifyOutput expectedSubstring =
     either
       ((`shouldContain` expectedSubstring) . unpack)
@@ -17,6 +25,7 @@ shouldReturnSubstring shellifyOutput expectedSubstring =
 shellifyWithArgs :: Text -> Either Text [(Text, Text)]
 shellifyWithArgs = shellifyWithArgsWithDb realDbExample
 
+realDbExample :: [Text]
 realDbExample =
   [ "global flake:agda github:agda/agda"
   , "global flake:arion github:hercules-ci/arion"
@@ -56,7 +65,25 @@ realDbExample =
   ]
 
 shellifyWithArgsWithDb :: [Text] -> Text -> Either Text [(Text, Text)]
-shellifyWithArgsWithDb customDb = parseOptionsAndCalculateExpectedFiles (unlines customDb) "nix-shellify" . words
+shellifyWithArgsWithDb customDb =
+    parsedOptions >=> handleParse (calculateExpectedFiles (unlines customDb))
+
+
+theOptions :: Text -> Either Text Options
+theOptions = either
+               Left
+               (handleParse id)
+             .  parsedOptions
+
+parsedOptions :: Text -> Either Text (ParserResult Options)
+parsedOptions = parseCommandLine . fmap unpack . words
+
+handleParse :: (t -> b) -> ParserResult t -> Either Text b
+handleParse succF = \case
+    Success opts -> Right (succF opts)
+    Failure (ParserFailure help) ->
+      Left . ("parse Error: " <>) . pack . show . helpError . fst3 . help $ ""
+    CompletionInvoked _-> Left "completion invoked"
 
 whereAUserNixpkgsExistsShellifyWithArgs :: Text -> Either Text [(Text, Text)]
 whereAUserNixpkgsExistsShellifyWithArgs = shellifyWithArgsWithDb
@@ -130,11 +157,10 @@ shouldResultInPackages parameters packages =
        `shouldBe`
      Right def{_packages=Packages packages}
 
-theOptions = options "nix-shellify" . words
-
 readNixTemplate :: FilePath -> IO Text
 readNixTemplate = readFile . ("test/outputs/" <>)
 
+flakeFile :: FilePath -> FilePath
 flakeFile = (<> "-flake.nix")
 shellFile = (<> "-shell.nix")
 
