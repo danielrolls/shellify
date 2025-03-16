@@ -1,5 +1,10 @@
 # Changelog for Shellify
 
+## 0.14.0
+- Substantial command line parsing changes.
+  Expect some changes of behaviour e.g. exit codes.
+- Command line completion support
+
 ## 0.13.0
 - Return exit code zero when some invalid options are passed
 - End shell and flake files with a newline character
