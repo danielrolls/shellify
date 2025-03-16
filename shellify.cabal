@@ -82,7 +82,7 @@ test-suite haskelltest-test
     ghc-options: -threaded -rtsopts -with-rtsopts=-N
     build-depends:
         data-default >=0.7 && <0.9,
-        extra >=1.7.16 && <1.8,
+        extra >=1.7.16 && <1.9,
         hspec >=2.9.7 && <2.12,
         hspec-core >=2.9.7 && <2.12,
         shellify >=0
