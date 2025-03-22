@@ -12,7 +12,7 @@ import Options.Applicative.Help.Pretty (prettyString)
 import Options.Applicative.Help.Types (ParserHelp(helpError))
 import Options.Applicative.Extra (ParserFailure(execFailure))
 
-import Options (Options(..), Packages(Packages), parseCommandLine)
+import Options (Options(..), Packages(Packages), parseCommandLine, setPackages)
 import Shellify ( calculateExpectedFiles )
 
 shouldReturnSubstring :: Either Text b -> [Char] -> Expectation
@@ -155,7 +155,7 @@ shouldResultInPackages :: Text -> [Text] -> Expectation
 shouldResultInPackages parameters packages =
      theOptions parameters
        `shouldBe`
-     Right def{_packages=Packages packages}
+     Right def{_packages=setPackages packages}
 
 readNixTemplate :: FilePath -> IO Text
 readNixTemplate = readFile . ("test/outputs/" <>)

@@ -1,13 +1,10 @@
 module Shellify (printErrorAndReturnFailure, runShellify, calculateExpectedFiles) where
 
 import Prelude hiding (readFile, writeFile)
-import Constants
-import FlakeTemplate
-import Options
-import ShellifyTemplate
-import TemplateGeneration
+import Options (Options())
+import TemplateGeneration ( generateFlakeText, generateShellDotNixText, getRegistryDB)
 
-import Control.Monad (when, (>=>))
+import Control.Monad (guard, when)
 import Data.Bool (bool)
 import Data.Maybe (isNothing)
 import Data.Text (pack, Text(), unpack)
@@ -31,10 +28,9 @@ createAFile (name, content) = do extCde <- createFile (unpack name) content
 
   where createFile :: FilePath -> Text -> IO ExitCode
         createFile fileName expectedContents = do
-          fileContents <-     doesPathExist fileName
-                          >>= bool
-                               (return Nothing)
-                               (Just <$> readFile fileName)
+          fileContents <- traverse readFile . bool Nothing
+                                                   (Just fileName)
+                                                   =<< doesPathExist fileName
           printError $ actionDescription (pack fileName) expectedContents fileContents
           when (isNothing fileContents)
             $ writeFile fileName expectedContents

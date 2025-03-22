@@ -1,5 +1,6 @@
 module TemplateGeneration (generateShellDotNixText, generateFlakeText, getRegistryDB) where
 
+import Prelude hiding (map)
 import Constants
 import FlakeTemplate
 import Options
@@ -7,9 +8,9 @@ import ShellifyTemplate
 
 import Data.Bifunctor (bimap)
 import Data.Bool (bool)
-import Data.List (find, sort, sortBy, sortOn)
+import Data.List (find, sortBy, sortOn)
 import Data.Maybe (fromMaybe)
-import Data.Set (fromList, toList)
+import Data.Set (Set(), insert, map, toList)
 import Data.Text (Text(), isInfixOf, isPrefixOf, pack, splitOn, unpack)
 import Development.Shake.Command (cmd, Exit(Exit), Stderr(Stderr), Stdout(Stdout))
 import System.Exit (ExitCode (ExitSuccess))
@@ -50,12 +51,12 @@ generateShellDotNixText Options{_packages=Packages packages, _command=command} =
           (setAttribute "shell_hook")
           command
   $ newSTMP shellifyTemplate
-  where pkgs = generateBuildInput <$> sort packages
+  where pkgs = map generateBuildInput packages
         parameters = generateParametersWrapper packages
         generateBuildInput input = (toImportVar . getPackageRepo) input <> "." <> getPackageName input
 
-getPackageRepoWrapper :: [Package] -> [Text]
-getPackageRepoWrapper = uniq . ("nixpkgs" :) . fmap getPackageRepo . sort
+getPackageRepoWrapper :: Set Package -> [Text]
+getPackageRepoWrapper = toList . insert "nixpkgs" . map getPackageRepo
 
 getPackageRepo input | "#" `isInfixOf` input
                         = head $ splitOn "#" input
@@ -75,17 +76,15 @@ toImportVar var | var == "nixpkgs"
 getPackageRepoVarName "nixpkgs" = "pkgs"
 getPackageRepoVarName a = a
 
-generateParametersWrapper :: [Package] -> [Text]
-generateParametersWrapper = uniq . ("pkgs ? import <nixpkgs> {}" :) . fmap generateParameters . sort
+generateParametersWrapper :: Set Package -> Set Text
+generateParametersWrapper = insert "pkgs ? import <nixpkgs> {}"
+                            . map generateParameters
 
 generateParameters :: Package -> Text
 generateParameters package | "#" `isInfixOf` package
                            && not ("nixpkgs#" `isPrefixOf` package)
                            = getPackageRepo package
 generateParameters _ = "pkgs ? import <nixpkgs> {}"
-
-uniq :: Ord a => [a] -> [a]
-uniq = toList . fromList
 
 getRegistryDB :: IO (Either Text Text)
 getRegistryDB =
