@@ -32,17 +32,17 @@ main = hspec $ do
       it "allows a command to be specified with a package" $
         theOptions "-p python --command cowsay"
           `shouldBe`
-        Right def{_packages=Packages ["python"], _command=Just "cowsay"}
+        Right def{_packages=setPackages ["python"], _command=Just "cowsay"}
 
       it "allows a command to be specified before a package" $
         theOptions "--run cowsay -p python"
           `shouldBe`
-        Right def{_packages=Packages ["python"], _command=Just "cowsay"}
+        Right def{_packages=setPackages ["python"], _command=Just "cowsay"}
 
       it "allows a command to be specified before and after a package" $
         theOptions "-p cowsay --command cowsay -p python"
           `shouldBe`
-        Right def{_packages=Packages [ "cowsay", "python" ], _command=Just "cowsay"}
+        Right def{_packages=setPackages [ "cowsay", "python" ], _command=Just "cowsay"}
 
       it "fails if command has no argument" $
         shellifyWithArgs "--command"
@@ -81,12 +81,12 @@ main = hspec $ do
     it "supports new shell commands" $
       theOptions "shell nixpkgs#python nixpkgs#cowsay"
         `shouldBe`
-      Right def{_packages=Packages [ "nixpkgs#python", "nixpkgs#cowsay" ], _outputForm=Flake}
+      Right def{_packages=setPackages [ "nixpkgs#python", "nixpkgs#cowsay" ], _outputForm=Flake}
 
     it "supports the --with-flake option" $
       theOptions "--with-flake -p python -p cowsay"
         `shouldBe`
-      Right def{_packages=Packages [ "python", "cowsay" ], _outputForm=Flake}
+      Right def{_packages=setPackages [ "python", "cowsay" ], _outputForm=Flake}
 
   describe "When dealing with multiple source repositories it should produce the correct output files for" $ do
 

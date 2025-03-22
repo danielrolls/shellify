@@ -1,32 +1,29 @@
 {-# LANGUAGE TemplateHaskell #-}
-module Options (Options(..), OutputForm(..), Package(..), Packages(Packages), parseCommandLine) where
+module Options (Options(..), OutputForm(..), Package(), Packages(Packages), parseCommandLine, setPackages) where
 
-import Constants
-import FlakeTemplate
-import ShellifyTemplate
+import Constants (hlDesc, noPackagesError)
 
 import Control.Lens.Combinators (makeLenses, makePrisms)
 import Data.Default (Default(def))
-import Data.List (isPrefixOf, sort)
-import Data.Maybe (fromMaybe, isJust)
-import Data.Text (pack, Text(), unpack)
+import Data.List (isPrefixOf)
+import Data.Maybe (fromMaybe)
+import Data.Set (Set(), fromList)
+import Data.Text (Text())
 import Data.Version (showVersion)
 import Options.Applicative ((<**>), Parser, ParserResult(Success, Failure, CompletionInvoked), argument, command, defaultPrefs, execParserPure, fullDesc, header, help, helper, hidden, info, long, metavar, option, optional, progDesc, short, simpleVersioner, some, str, strOption, switch)
 import Paths_shellify (version)
-import System.Environment (getArgs)
 
 data OutputForm = Traditional
                 | Flake
      deriving (Eq, Show)
 
-newtype Packages = Packages [ Package ] deriving Show
+newtype Packages = Packages (Set Package)
+        deriving (Eq, Monoid, Semigroup, Show)
 
 type Package = Text
 
-instance Eq Packages where
-  Packages a == Packages b = sort a == sort b
-
 makePrisms ''Packages
+setPackages = Packages . fromList
 
 opts = info (commandParser <**> simpleVersioner (showVersion version)
                            <**> helper) $
@@ -83,8 +80,8 @@ data CommandLineOptions = CommandLineOptions {
 makeLenses ''Options
 
 instance Default Options where
-  def = Options{
-    _packages = Packages [],
+  def = Options {
+    _packages = mempty,
     _command = Nothing,
     _outputForm = Traditional,
     _prioritiseLocalPinnedSystem = False
@@ -99,21 +96,20 @@ parseCommandLine =
       . execParserPure defaultPrefs opts . fixupRequest
   where parseCommandLineOptions :: CommandLineOptions -> Either Text Options
         parseCommandLineOptions originalParsedOptions =
-          let transformedOptions =
-                    (Options <$> Packages . ((++) <$> fromMaybe [] . __packages
-                                                  <*> shellArgs . __shellPackages)
-                             <*> __command
-                             <*> \case
-                               f | __withFlake f -> Flake
-                                 | (hasShellArg . __shellPackages) f -> Flake
-                               _ | otherwise -> Traditional
-                             <*> __prioritiseLocalPinnedSystem) originalParsedOptions
-
-          in if _packages transformedOptions == Packages [] then
-               Left noPackagesError
-             else
-               Right transformedOptions
-          where hasShellArg (Just ("shell":_)) = True
+          if _packages transformedOptions == mempty then
+            Left noPackagesError
+          else
+            Right transformedOptions
+          where transformedOptions =
+                  (Options <$> setPackages . ((++) <$> fromMaybe mempty . __packages
+                                                   <*> shellArgs . __shellPackages)
+                           <*> __command
+                           <*> \case
+                             f | __withFlake f -> Flake
+                               | (hasShellArg . __shellPackages) f -> Flake
+                             _ | otherwise -> Traditional
+                           <*> __prioritiseLocalPinnedSystem) originalParsedOptions
+                hasShellArg (Just ("shell":_)) = True
                 hasShellArg _ = False
                 shellArgs (Just ("shell": rst)) = rst
                 shellArgs _ = []
