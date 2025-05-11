@@ -1,6 +1,8 @@
 # Shellify
 
-[![Hackage](https://img.shields.io/badge/hackage-shellify-brightgreen.svg)](http://hackage.haskell.org/package/shellify)
+[![Packaging status](https://repology.org/badge/vertical-allrepos/shellify.svg?columns=4&header=Shellify)](https://repology.org/project/shellify/versions)
+
+[![Packaging status](https://repology.org/badge/vertical-allrepos/haskell%3Ashellify.svg?columns=4&header=Shellify%20Library)](https://repology.org/project/shellify/versions)
 
 Want to quicky get something to build and to have it reproducable and sharable? With [`nix`](https://nixos.org/manual/nix/stable/command-ref/nix-shell.html) it is easy to quickly add dependencies to get something to build. It's also easy to work quickly and iteratively. With this tool, once you're done you can save a `shell.nix` so that you and anybody else can quickly and instantly rebuild with an identical environment with all the same dependencies. Just swap out `nix-shell` or `nix` for `nix-shellify` to create the necessary `shell.nix` in the local directory. It makes saving a basic working `shell.nix` almost instant. Take a look at the short examples below to see the workflow.
 
