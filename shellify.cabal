@@ -28,7 +28,7 @@ source-repository head
 common deps
     default-language: GHC2021
     build-depends:
-        base >=4.16 && <4.21,
+        base >=4.16 && <4.22,
         optparse-applicative >=0.18.1.0 && <0.20,
         raw-strings-qq >=1.1 && <1.2,
         text >=1.2.5.0 && <2.2
@@ -52,7 +52,7 @@ library
         Paths_shellify
     hs-source-dirs: src
     build-depends:
-        containers >=0.6.5.1 && <0.8,
+        containers >=0.6.5.1 && <0.9,
         data-default >=0.7 && <0.9,
         directory >=1.3.6.2 && <1.4,
         HStringTemplate >=0.8.8 && <0.9,
